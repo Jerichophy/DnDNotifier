@@ -116,12 +116,10 @@
       const name = document.getElementById("session-id-input").value.trim().toLowerCase();
       if (!name) return;
 
-      const readyAt = prompt("What time are you ready? (e.g. 19:00)");
-      const waitUntil = prompt("How long will you wait? (e.g. 20:00)");
-      if (!readyAt || !waitUntil) return;
-
-      const { db, ref, set, get } = window.dndApp;
+      const { db, ref, set, get, onValue } = window.dndApp;
       const sessionRef = ref(db, `sessions/${name}`);
+      const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
+      const approvedRef = ref(db, `sessions/${name}/approvedPlayers/${userId}`);
 
       get(sessionRef).then((snapshot) => {
         if (!snapshot.exists()) {
@@ -130,22 +128,52 @@
         }
 
         const session = snapshot.val();
+
         if (session.sessionLocked) {
-          alert("This session is already locked. No new players allowed.");
+          alert("This session is locked. No new players can join.");
           return;
         }
 
-        const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
-        set(pendingRef, {
-          name: nickname,
-          readyAt: readyAt,
-          waitUntil: waitUntil
-        }).then(() => {
-          alert("Join request sent with your availability. Waiting for DM approval.");
-          loadUserSessions();
+        // Check if already approved
+        get(approvedRef).then((approvedSnap) => {
+          if (approvedSnap.exists()) {
+            alert("You are already part of this session.");
+            return;
+          }
+
+          // Check if already in pending list
+          get(pendingRef).then((pendingSnap) => {
+            if (pendingSnap.exists()) {
+              const cancel = confirm(
+                "You already requested to join this session.\nDo you want to cancel your request?"
+              );
+              if (cancel) {
+                set(pendingRef, null).then(() => {
+                  alert("Your join request has been cancelled.");
+                  loadUserSessions();
+                });
+              }
+              return;
+            }
+
+            // If not pending, prompt for time and send join request
+            const readyAt = prompt("What time are you ready? (HH:MM)");
+            const waitUntil = prompt("How long will you wait? (HH:MM)");
+            if (!readyAt || !waitUntil) return;
+
+            set(pendingRef, {
+              name: nickname,
+              readyAt: readyAt,
+              waitUntil: waitUntil
+            }).then(() => {
+              alert("Join request sent with your availability. Waiting for DM approval.");
+              loadUserSessions();
+            });
+          });
         });
       });
     }
+
 
     function loadUserSessions() {
       const { db, ref, get } = window.dndApp;
