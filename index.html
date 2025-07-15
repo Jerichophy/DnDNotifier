@@ -2,83 +2,151 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>D&D Session Notifier</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 100px;
-      background-color: #1e1e2f;
-      color: white;
-    }
+  <title>D&D Session Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    h1 {
-      margin-bottom: 20px;
-    }
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
-    input, button {
-      font-size: 18px;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-    }
+    const firebaseConfig = {
+      apiKey: "AIzaSyCo1UDoLEKLyK0xGUS3SPp-Pl7h6M2viq8",
+      authDomain: "dnd-session-manager-5a6fa.firebaseapp.com",
+      databaseURL: "https://dnd-session-manager-5a6fa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dnd-session-manager-5a6fa",
+      storageBucket: "dnd-session-manager-5a6fa.firebasestorage.app",
+      messagingSenderId: "289433942788",
+      appId: "1:289433942788:web:1cd3bc91f08e2ab838ee51"
+    };
 
-    input[type="time"] {
-      background-color: #2d2d3f;
-      color: white;
-    }
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window.dndApp = { db, ref, push, set, onValue };
+  </script>
 
-    button {
-      background-color: #7289da;
-      color: white;
-      margin-left: 10px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #5b6eae;
-    }
-
-    #status {
-      margin-top: 20px;
-      font-size: 16px;
-    }
-  </style>
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>📣 D&D Session Notifier</h1>
-  <label for="playTime">Select time:</label>
-  <input type="time" id="playTime">
-  <button onclick="notifyDM()">Notify DM</button>
-  <div id="status"></div>
+  <h1>D&D Session Manager</h1>
+
+  <!-- Login Section -->
+  <div id="login-section" class="section">
+    <h2>Enter Your Nickname</h2>
+    <input type="text" id="nickname" placeholder="e.g. Eldrin the Wizard">
+    <button onclick="login()">Continue</button>
+  </div>
+
+  <!-- Dashboard Section -->
+  <div id="dashboard-section" class="section hidden">
+    <h2>Welcome, <span id="user-name"></span>!</h2>
+
+    <button onclick="createSession()">🎲 Create New Session</button>
+
+    <h3>Or join a session:</h3>
+    <input type="text" id="session-id-input" placeholder="Enter Session ID">
+    <button onclick="joinSession()">Join Session</button>
+  </div>
+
+  <!-- Player Form -->
+  <div id="player-section" class="section hidden">
+    <h2>Join Session: <span id="session-code-display"></span></h2>
+    <label>Ready At:</label>
+    <input type="time" id="readyAt">
+    <label>Wait Until:</label>
+    <input type="time" id="waitUntil">
+    <button onclick="submitAvailability()">I'm Ready</button>
+  </div>
+
+  <!-- DM View -->
+  <div id="dm-section" class="section hidden">
+    <h2>DM Panel – Session ID: <span id="dm-session-code"></span></h2>
+    <div id="players-list"></div>
+  </div>
 
   <script>
-    const webhookURL = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
+    let nickname = "";
+    let sessionId = "";
+    let isDM = false;
 
-    function notifyDM() {
-      const time = document.getElementById("playTime").value;
-      const now = new Date();
-      const formattedTime = time ? `at **${time}**` : "now";
+    function login() {
+      const nameInput = document.getElementById("nickname");
+      if (!nameInput.value.trim()) return alert("Enter a nickname.");
+      nickname = nameInput.value.trim();
+      document.getElementById("user-name").textContent = nickname;
+      document.getElementById("login-section").classList.add("hidden");
+      document.getElementById("dashboard-section").classList.remove("hidden");
 
-      const content = `🧙 Hey DM! I'm ready to play ${formattedTime}! 🎲`;
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("session")) {
+        document.getElementById("session-id-input").value = urlParams.get("session");
+        joinSession();
+      }
+    }
 
-      fetch(webhookURL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ content: content })
-      })
-      .then(response => {
-        if (response.ok) {
-          document.getElementById("status").textContent = "✅ DM has been notified!";
-        } else {
-          document.getElementById("status").textContent = "❌ Failed to notify the DM.";
+    function createSession() {
+      const { db, ref, push, set } = window.dndApp;
+      const sessionRef = push(ref(db, "sessions"));
+      sessionId = sessionRef.key;
+      set(sessionRef, { dm: nickname });
+
+      isDM = true;
+      document.getElementById("dashboard-section").classList.add("hidden");
+      document.getElementById("dm-section").classList.remove("hidden");
+      document.getElementById("dm-session-code").textContent = sessionId;
+
+      listenToPlayers();
+    }
+
+    function joinSession() {
+      const input = document.getElementById("session-id-input").value.trim();
+      if (!input) return alert("Enter a session ID.");
+      sessionId = input;
+      document.getElementById("dashboard-section").classList.add("hidden");
+      document.getElementById("player-section").classList.remove("hidden");
+      document.getElementById("session-code-display").textContent = sessionId;
+    }
+
+    function submitAvailability() {
+      const readyAt = document.getElementById("readyAt").value;
+      const waitUntil = document.getElementById("waitUntil").value;
+      if (!readyAt || !waitUntil) return alert("Select both time fields.");
+
+      const { db, ref, push, set } = window.dndApp;
+      const playerRef = push(ref(db, `sessions/${sessionId}/players`));
+      set(playerRef, {
+        name: nickname,
+        readyAt,
+        waitUntil
+      });
+
+      alert("✅ You're marked as ready!");
+      document.getElementById("player-section").classList.add("hidden");
+    }
+
+    function listenToPlayers() {
+      const { db, ref, onValue } = window.dndApp;
+      const playersRef = ref(db, `sessions/${sessionId}/players`);
+      onValue(playersRef, snapshot => {
+        const data = snapshot.val();
+        const container = document.getElementById("players-list");
+        container.innerHTML = "";
+
+        if (!data) {
+          container.innerHTML = "<i>No players yet.</i>";
+          return;
         }
-      })
-      .catch(error => {
-        console.error("Error:", error);
-        document.getElementById("status").textContent = "❌ Error occurred while notifying.";
+
+        Object.values(data).forEach(player => {
+          const row = document.createElement("div");
+          row.className = "player-row";
+          row.innerHTML = `
+            <strong>${player.name}</strong><br>
+            Ready At: ${player.readyAt} | Wait Until: ${player.waitUntil}
+          `;
+          container.appendChild(row);
+        });
       });
     }
   </script>
