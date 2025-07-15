@@ -114,15 +114,26 @@
     function joinSession() {
       const name = document.getElementById("session-id-input").value.trim().toLowerCase();
       if (!name) return;
-      const readyAt = prompt("What time are you ready? (HH:MM)");
-      const waitUntil = prompt("How long will you wait? (HH:MM)");
-      if (!readyAt || !waitUntil) return;
 
-      const { db, ref, set } = window.dndApp;
-      const playerRef = ref(db, `sessions/${name}/players/${userId}`);
-      set(playerRef, { name: nickname, readyAt, waitUntil }).then(() => {
-        alert("Joined session.");
-        loadUserSessions();
+      const { db, ref, set, get } = window.dndApp;
+      const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
+
+      get(ref(db, `sessions/${name}`)).then(snapshot => {
+        if (!snapshot.exists()) {
+          alert("That session does not exist.");
+          return;
+        }
+
+        const session = snapshot.val();
+        if (session.sessionLocked) {
+          alert("This session is already locked. No new players allowed.");
+          return;
+        }
+
+        set(pendingRef, { name: nickname }).then(() => {
+          alert("Join request sent. Waiting for DM approval.");
+          loadUserSessions();
+        });
       });
     }
 
