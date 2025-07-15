@@ -314,3 +314,14 @@ function backToDashboard() {
 }
 
 window.onload = handleDiscordLogin;
+window.loginWithDiscord = loginWithDiscord;
+window.createSession = createSession;
+window.joinSession = joinSession;
+window.viewSession = viewSession;
+window.backToDashboard = backToDashboard;
+window.approvePlayer = approvePlayer;
+window.rejectPlayer = rejectPlayer;
+window.lockSession = lockSession;
+window.unlockSession = unlockSession;
+window.startNewRound = startNewRound;
+window.deleteSession = deleteSession;
