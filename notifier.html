@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>D&D Session Notifier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+      background-color: #1e1e2f;
+      color: white;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      font-size: 18px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+    }
+
+    input[type="time"] {
+      background-color: #2d2d3f;
+      color: white;
+    }
+
+    button {
+      background-color: #7289da;
+      color: white;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #5b6eae;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📣 D&D Session Notifier</h1>
+  <label for="playTime">Select time:</label>
+  <input type="time" id="playTime">
+  <button onclick="notifyDM()">Notify DM</button>
+  <div id="status"></div>
+
+  <script>
+    const webhookURL = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
+
+    function notifyDM() {
+      const time = document.getElementById("playTime").value;
+      const now = new Date();
+      const formattedTime = time ? `at **${time}**` : "now";
+
+      const content = `🧙 Hey DM! I'm ready to play ${formattedTime}! 🎲`;
+
+      fetch(webhookURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ content: content })
+      })
+      .then(response => {
+        if (response.ok) {
+          document.getElementById("status").textContent = "✅ DM has been notified!";
+        } else {
+          document.getElementById("status").textContent = "❌ Failed to notify the DM.";
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        document.getElementById("status").textContent = "❌ Error occurred while notifying.";
+      });
+    }
+  </script>
+</body>
+</html>
