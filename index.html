@@ -115,6 +115,10 @@
       const name = document.getElementById("session-id-input").value.trim().toLowerCase();
       if (!name) return;
 
+      const readyAt = prompt("What time are you ready? (HH:MM)");
+      const waitUntil = prompt("How long will you wait? (HH:MM)");
+      if (!readyAt || !waitUntil) return;
+
       const { db, ref, set, get } = window.dndApp;
       const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
 
@@ -130,8 +134,12 @@
           return;
         }
 
-        set(pendingRef, { name: nickname }).then(() => {
-          alert("Join request sent. Waiting for DM approval.");
+        set(pendingRef, {
+          name: nickname,
+          readyAt: readyAt,
+          waitUntil: waitUntil
+        }).then(() => {
+          alert("Join request sent with time. Waiting for DM approval.");
           loadUserSessions();
         });
       });
