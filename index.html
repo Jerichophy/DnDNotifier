@@ -7,7 +7,14 @@
   <link rel="stylesheet" href="style.css" />
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, get, update } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      onValue,
+      get,
+      update
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCo1UDoLEKLyK0xGUS3SPp-Pl7h6M2viq8",
@@ -116,7 +123,7 @@
       const name = document.getElementById("session-id-input").value.trim().toLowerCase();
       if (!name) return;
 
-      const { db, ref, set, get, onValue } = window.dndApp;
+      const { db, ref, set, get } = window.dndApp;
       const sessionRef = ref(db, `sessions/${name}`);
       const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers/${userId}`);
@@ -128,25 +135,20 @@
         }
 
         const session = snapshot.val();
-
         if (session.sessionLocked) {
           alert("This session is locked. No new players can join.");
           return;
         }
 
-        // Check if already approved
         get(approvedRef).then((approvedSnap) => {
           if (approvedSnap.exists()) {
             alert("You are already part of this session.");
             return;
           }
 
-          // Check if already in pending list
           get(pendingRef).then((pendingSnap) => {
             if (pendingSnap.exists()) {
-              const cancel = confirm(
-                "You already requested to join this session.\nDo you want to cancel your request?"
-              );
+              const cancel = confirm("You already requested to join this session.\nDo you want to cancel your request?");
               if (cancel) {
                 set(pendingRef, null).then(() => {
                   alert("Your join request has been cancelled.");
@@ -156,7 +158,6 @@
               return;
             }
 
-            // If not pending, prompt for time and send join request
             const readyAt = prompt("What time are you ready? (HH:MM)");
             const waitUntil = prompt("How long will you wait? (HH:MM)");
             if (!readyAt || !waitUntil) return;
@@ -166,14 +167,13 @@
               readyAt: readyAt,
               waitUntil: waitUntil
             }).then(() => {
-              alert("Join request sent with your availability. Waiting for DM approval.");
+              alert("Join request sent. Waiting for DM approval.");
               loadUserSessions();
             });
           });
         });
       });
     }
-
 
     function loadUserSessions() {
       const { db, ref, get } = window.dndApp;
@@ -230,18 +230,28 @@
       document.getElementById("session-view").classList.remove("hidden");
       document.getElementById("view-session-name").textContent = name;
       document.getElementById("view-role").textContent = `You are the ${role}`;
+
+      const { db, ref, onValue } = window.dndApp;
       const container = document.getElementById("session-details");
       container.innerHTML = "";
 
-      const { db, ref, onValue, update } = window.dndApp;
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
       const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
-      const sessionRef = ref(db, `sessions/${name}`);
+      const lockRef = ref(db, `sessions/${name}/sessionLocked`);
 
-      // Approved Players
+      let html = "";
+
+      // Show session lock status
+      onValue(lockRef, (snap) => {
+        const locked = snap.val();
+        const status = `<p><strong>Session is currently ${locked ? "🔒 Locked" : "🔓 Unlocked"}</strong></p>`;
+        document.getElementById("session-details").insertAdjacentHTML("afterbegin", status);
+      });
+
+      // Approved players
       onValue(approvedRef, (snapshot) => {
         const data = snapshot.val() || {};
-        let html = "<h3>Approved Players</h3>";
+        html += "<h3>Approved Players</h3>";
         html += Object.keys(data).length
           ? "<ul>" + Object.entries(data).map(([_, p]) =>
               `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}</li>`).join("") + "</ul>"
@@ -249,31 +259,39 @@
         container.innerHTML = html;
       });
 
-      // DM controls
+      // Pending players (DM only)
       if (role === "DM") {
         onValue(pendingRef, (snapshot) => {
           const data = snapshot.val() || {};
-          let html = "<h3>Pending Players</h3>";
-          html += Object.keys(data).length
+          let pendingHTML = "<h3>Pending Players</h3>";
+          pendingHTML += Object.keys(data).length
             ? "<ul>" + Object.entries(data).map(([id, p]) =>
                 `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
                   <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
                   <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button></li>`).join("") + "</ul>"
             : "<i>No pending players.</i>";
-          container.innerHTML += html;
-        });
+          container.innerHTML += pendingHTML;
 
-        // Lock Session Button
-        container.innerHTML += `
-          <button onclick="lockSession('${name}')">🔒 Done (Lock Session)</button>
-        `;
+          // Add Lock/Unlock buttons
+          container.innerHTML += `
+            <button onclick="lockSession('${name}')">🔒 Lock Session</button>
+            <button onclick="unlockSession('${name}')">🔓 Unlock Session</button>
+          `;
+        });
       }
     }
 
     function lockSession(sessionName) {
       const { db, ref, update } = window.dndApp;
       update(ref(db, `sessions/${sessionName}`), { sessionLocked: true }).then(() => {
-        alert("Session locked. No new players can join.");
+        alert("Session locked.");
+      });
+    }
+
+    function unlockSession(sessionName) {
+      const { db, ref, update } = window.dndApp;
+      update(ref(db, `sessions/${sessionName}`), { sessionLocked: false }).then(() => {
+        alert("Session unlocked.");
       });
     }
 
