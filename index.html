@@ -52,6 +52,7 @@
   <div id="session-view" class="section hidden">
     <h2>Session: <span id="view-session-name"></span></h2>
     <div id="view-role"></div>
+    <div id="lock-session-container"></div>
     <div id="session-details"></div>
     <button onclick="backToDashboard()">Back</button>
   </div>
@@ -224,10 +225,35 @@
 
       const { db, ref, onValue } = window.dndApp;
 
+      const sessionRef = ref(db, `sessions/${name}`);
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
       const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
       const container = document.getElementById("session-details");
+      const lockBtnContainer = document.getElementById("lock-session-container");
       container.innerHTML = "";
+      lockBtnContainer.innerHTML = "";
+
+      // Listen for session changes (to show Lock/Unlock button for DM)
+      onValue(sessionRef, (snapshot) => {
+        const session = snapshot.val();
+
+        if (session && session.dm && session.dm.id === userId) {
+          const locked = session.sessionLocked === true;
+
+          lockBtnContainer.innerHTML = `
+            <button id="lock-session-btn">${locked ? "Unlock Session" : "Lock Session"}</button>
+            <p>Status: <strong>${locked ? "Locked" : "Open"}</strong></p>
+          `;
+
+          document.getElementById("lock-session-btn").onclick = () => {
+            window.dndApp.set(ref(db, `sessions/${name}/sessionLocked`), !locked).then(() => {
+              alert(`Session ${locked ? "unlocked" : "locked"}.`);
+            });
+          };
+        } else {
+          lockBtnContainer.innerHTML = ""; // No button for non-DM users
+        }
+      });
 
       // Show approved players
       onValue(approvedRef, (snapshot) => {
@@ -272,6 +298,7 @@
         });
       }
     }
+
 
     function approvePlayer(sessionName, playerId) {
       const { db, ref, get, set } = window.dndApp;
