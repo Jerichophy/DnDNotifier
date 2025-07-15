@@ -23,6 +23,7 @@
     const db = getDatabase(app);
     window.dndApp = { db, ref, set, onValue, get, update, remove };
   </script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
   <h1>D&D Session Manager</h1>
@@ -49,120 +50,5 @@
     <div id="session-details"></div>
     <button onclick="backToDashboard()">Back</button>
   </div>
-
-  <script>
-    const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-
-    let nickname = "";
-    let userId = "";
-
-    async function sendDiscordNotification(message) {
-      try {
-        await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: message })
-        });
-      } catch (err) {
-        console.warn("Failed to send Discord notification:", err);
-      }
-    }
-
-    function unlockSession(sessionName) {
-      const { db, ref, update } = window.dndApp;
-      update(ref(db, `sessions/${sessionName}`), {
-        sessionLocked: false,
-        sessionStartTime: null
-      }).then(() => {
-        alert("Session unlocked. Players may now rejoin or edit availability.");
-        sendDiscordNotification(`🔓 Session '${sessionName}' has been unlocked by the DM.`);
-        viewSession(sessionName, "DM");
-      });
-    }
-
-    function lockSession(sessionName) {
-      const { db, ref, get, update } = window.dndApp;
-      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers`);
-
-      get(approvedRef).then((snapshot) => {
-        if (!snapshot.exists()) {
-          alert("No approved players to calculate start time.");
-          return;
-        }
-
-        const players = snapshot.val();
-        const readyTimes = Object.values(players).map(p => p.readyAt).filter(Boolean);
-
-        if (readyTimes.length === 0) {
-          alert("No readyAt times found for approved players.");
-          return;
-        }
-
-        const latestTime = readyTimes.reduce((latest, time) => time > latest ? time : latest, "00:00");
-
-        update(ref(db, `sessions/${sessionName}`), {
-          sessionLocked: true,
-          sessionStartTime: latestTime
-        }).then(() => {
-          alert(`Session locked. Scheduled start time: ${latestTime}`);
-          sendDiscordNotification(`🔒 Session '${sessionName}' is now locked. Starts at ${latestTime}.`);
-          viewSession(sessionName, "DM");
-        });
-      });
-    }
-
-    function viewSession(name, role) {
-      document.getElementById("dashboard-section").classList.add("hidden");
-      document.getElementById("session-view").classList.remove("hidden");
-      document.getElementById("view-session-name").textContent = name;
-      document.getElementById("view-role").textContent = `You are the ${role}`;
-      const container = document.getElementById("session-details");
-      container.innerHTML = "";
-
-      const { db, ref, onValue } = window.dndApp;
-      const sessionRef = ref(db, `sessions/${name}`);
-      onValue(sessionRef, (snapshot) => {
-        const session = snapshot.val();
-        if (session.sessionStartTime) {
-          container.innerHTML += `<p><strong>Session Start Time:</strong> ${session.sessionStartTime}</p>`;
-        }
-
-        if (role === "DM") {
-          const lockButton = session.sessionLocked
-            ? `<button onclick="unlockSession('${name}')">🔓 Unlock Session</button>`
-            : `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`;
-
-          container.innerHTML += `${lockButton}
-            <button onclick="startNewRound('${name}')">🔁 Start New Round</button>`;
-        }
-      });
-
-      const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
-      const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
-
-      onValue(approvedRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        let html = "<h3>Approved Players</h3>";
-        html += Object.keys(data).length
-          ? "<ul>" + Object.entries(data).map(([_, p]) => `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "-"}, Wait Until ${p.waitUntil || "-"}</li>`).join("") + "</ul>"
-          : "<i>No approved players yet.</i>";
-        container.innerHTML += html;
-      });
-
-      if (role === "DM") {
-        onValue(pendingRef, (snapshot) => {
-          const data = snapshot.val() || {};
-          let html = "<h3>Pending Players</h3>";
-          html += Object.keys(data).length
-            ? "<ul>" + Object.entries(data).map(([id, p]) =>
-                `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
-                  <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                  <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button></li>`).join("") + "</ul>"
-            : "<i>No pending players.</i>";
-          container.innerHTML += html;
-        });
-      }
-    }
-  </script>
 </body>
 </html>
