@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, get, child } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCo1UDoLEKLyK0xGUS3SPp-Pl7h6M2viq8",
@@ -21,55 +21,44 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window.dndApp = { db, ref, push, set, onValue };
+    window.dndApp = { db, ref, set, onValue, get, child };
   </script>
 </head>
 <body>
   <h1>D&D Session Manager</h1>
 
-  <!-- Discord Login -->
   <div id="discord-login" class="section">
     <h2>Login with Discord</h2>
     <button onclick="loginWithDiscord()">Login</button>
   </div>
 
-  <!-- Dashboard Section -->
   <div id="dashboard-section" class="section hidden">
     <h2>Welcome, <span id="user-name"></span>!</h2>
     <img id="avatar" src="" width="64" height="64" style="border-radius: 50%; margin: 10px auto; display:block;">
     <button onclick="createSession()">🎲 Create New Session</button>
     <h3>Or join a session:</h3>
-    <input type="text" id="session-id-input" placeholder="Enter Session ID">
+    <input type="text" id="session-id-input" placeholder="Enter Session Name">
     <button onclick="joinSession()">Join Session</button>
+    <h3>My Sessions:</h3>
+    <div id="session-list"></div>
   </div>
 
-  <!-- Player Form -->
-  <div id="player-section" class="section hidden">
-    <h2>Join Session: <span id="session-code-display"></span></h2>
-    <label>Ready At:</label>
-    <input type="time" id="readyAt">
-    <label>Wait Until:</label>
-    <input type="time" id="waitUntil">
-    <button onclick="submitAvailability()">I'm Ready</button>
-  </div>
-
-  <!-- DM View -->
-  <div id="dm-section" class="section hidden">
-    <h2>DM Panel – Session ID: <span id="dm-session-code"></span></h2>
-    <div id="players-list"></div>
+  <div id="session-view" class="section hidden">
+    <h2>Session: <span id="view-session-name"></span></h2>
+    <div id="view-role"></div>
+    <div id="session-details"></div>
+    <button onclick="backToDashboard()">Back</button>
   </div>
 
   <script>
     let nickname = "";
-    let sessionId = "";
-    let isDM = false;
+    let userId = "";
 
     function loginWithDiscord() {
       const clientId = "1394705358873690355";
       const redirectUri = encodeURIComponent("https://jerichophy.github.io/DnDNotifier/");
       const scope = "identify";
       const responseType = "token";
-
       const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
       window.location.href = discordAuthUrl;
     }
@@ -87,123 +76,120 @@
 
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get("access_token");
+      if (!token) return;
 
-      if (token) {
-        const user = await getUserInfoFromDiscord(token);
-        nickname = `${user.username}#${user.discriminator}`;
-        window.discordUser = {
-          id: user.id,
-          username: user.username,
-          discriminator: user.discriminator,
-          avatar: user.avatar
-        };
+      const user = await getUserInfoFromDiscord(token);
+      nickname = `${user.username}#${user.discriminator}`;
+      userId = user.id;
 
-        document.getElementById("user-name").textContent = nickname;
-        document.getElementById("avatar").src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+      document.getElementById("user-name").textContent = nickname;
+      document.getElementById("avatar").src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+      document.getElementById("discord-login").classList.add("hidden");
+      document.getElementById("dashboard-section").classList.remove("hidden");
 
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has("session")) {
-          const sessionId = urlParams.get("session");
-          checkIfUserIsDM(sessionId, user.id);
-        } else {
-          document.getElementById("discord-login").classList.add("hidden");
-          document.getElementById("dashboard-section").classList.remove("hidden");
-        }
-      }
+      loadUserSessions();
     }
 
     function createSession() {
-      const { db, ref, push, set } = window.dndApp;
-      const sessionRef = push(ref(db, "sessions"));
-      sessionId = sessionRef.key;
-      set(sessionRef, {
-        dm: {
-          username: nickname,
-          id: window.discordUser.id
+      const name = prompt("Name your session (e.g. 'curse-of-strahd')").toLowerCase().replace(/\s+/g, "-");
+      if (!name) return;
+
+      const { db, ref, set, get, child } = window.dndApp;
+      const sessionRef = ref(db, `sessions/${name}`);
+
+      get(sessionRef).then(snapshot => {
+        if (snapshot.exists()) {
+          alert("Session name already exists. Choose another.");
+        } else {
+          set(sessionRef, {
+            dm: {
+              username: nickname,
+              id: userId
+            }
+          }).then(() => {
+            alert(`Session '${name}' created.`);
+            loadUserSessions();
+          });
         }
       });
-
-      isDM = true;
-      document.getElementById("dashboard-section").classList.add("hidden");
-      document.getElementById("dm-section").classList.remove("hidden");
-      document.getElementById("dm-session-code").textContent = sessionId;
-
-      listenToPlayers();
     }
 
     function joinSession() {
-      const input = document.getElementById("session-id-input").value.trim();
-      if (!input) return alert("Enter a session ID.");
-      sessionId = input;
-      document.getElementById("dashboard-section").classList.add("hidden");
-      document.getElementById("player-section").classList.remove("hidden");
-      document.getElementById("session-code-display").textContent = sessionId;
-    }
+      const name = document.getElementById("session-id-input").value.trim().toLowerCase();
+      if (!name) return;
+      const readyAt = prompt("What time are you ready? (HH:MM)");
+      const waitUntil = prompt("How long will you wait? (HH:MM)");
+      if (!readyAt || !waitUntil) return;
 
-    function submitAvailability() {
-      const readyAt = document.getElementById("readyAt").value;
-      const waitUntil = document.getElementById("waitUntil").value;
-      if (!readyAt || !waitUntil) return alert("Select both time fields.");
-
-      const { db, ref, push, set } = window.dndApp;
-      const playerRef = push(ref(db, `sessions/${sessionId}/players`));
-      set(playerRef, {
-        name: nickname,
-        readyAt,
-        waitUntil
+      const { db, ref, set } = window.dndApp;
+      const playerRef = ref(db, `sessions/${name}/players/${userId}`);
+      set(playerRef, { name: nickname, readyAt, waitUntil }).then(() => {
+        alert("Joined session.");
+        loadUserSessions();
       });
-
-      alert("✅ You're marked as ready!");
-      document.getElementById("player-section").classList.add("hidden");
     }
 
-    function listenToPlayers() {
-      const { db, ref, onValue } = window.dndApp;
-      const playersRef = ref(db, `sessions/${sessionId}/players`);
-      onValue(playersRef, snapshot => {
-        const data = snapshot.val();
-        const container = document.getElementById("players-list");
-        container.innerHTML = "";
+    function loadUserSessions() {
+      const { db, ref, get } = window.dndApp;
+      const sessionList = document.getElementById("session-list");
+      sessionList.innerHTML = "Loading...";
 
-        if (!data) {
-          container.innerHTML = "<i>No players yet.</i>";
+      get(ref(db, "sessions")).then(snapshot => {
+        const sessions = snapshot.val();
+        sessionList.innerHTML = "";
+        if (!sessions) {
+          sessionList.innerHTML = "<i>No sessions found.</i>";
           return;
         }
 
-        Object.values(data).forEach(player => {
+        Object.entries(sessions).forEach(([sessionName, session]) => {
+          let role = "";
+          let isIn = false;
+          if (session.dm && session.dm.id === userId) {
+            role = "DM";
+            isIn = true;
+          } else if (session.players && Object.values(session.players).some(p => p.name === nickname)) {
+            role = "Player";
+            isIn = true;
+          }
+          if (isIn) {
+            const div = document.createElement("div");
+            div.innerHTML = `<strong>${sessionName}</strong> (${role}) <button onclick="viewSession('${sessionName}', '${role}')">View</button>`;
+            sessionList.appendChild(div);
+          }
+        });
+      });
+    }
+
+    function viewSession(name, role) {
+      document.getElementById("dashboard-section").classList.add("hidden");
+      document.getElementById("session-view").classList.remove("hidden");
+      document.getElementById("view-session-name").textContent = name;
+      document.getElementById("view-role").textContent = `You are the ${role}`;
+
+      const { db, ref, onValue } = window.dndApp;
+      const sessionRef = ref(db, `sessions/${name}/players`);
+      const container = document.getElementById("session-details");
+      container.innerHTML = "Loading...";
+
+      onValue(sessionRef, snapshot => {
+        const data = snapshot.val();
+        if (!data) {
+          container.innerHTML = "<i>No players joined yet.</i>";
+          return;
+        }
+        container.innerHTML = "";
+        Object.values(data).forEach(p => {
           const row = document.createElement("div");
-          row.className = "player-row";
-          row.innerHTML = `
-            <strong>${player.name}</strong><br>
-            Ready At: ${player.readyAt} | Wait Until: ${player.waitUntil}
-          `;
+          row.innerHTML = `<strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}`;
           container.appendChild(row);
         });
       });
     }
 
-    function checkIfUserIsDM(sessionIdFromURL, userId) {
-      const { db, ref, onValue } = window.dndApp;
-      const dmRef = ref(db, `sessions/${sessionIdFromURL}/dm`);
-
-      onValue(dmRef, snapshot => {
-        const dm = snapshot.val();
-        if (dm && dm.id === userId) {
-          // You are the DM
-          sessionId = sessionIdFromURL;
-          isDM = true;
-          document.getElementById("discord-login").classList.add("hidden");
-          document.getElementById("dm-section").classList.remove("hidden");
-          document.getElementById("dm-session-code").textContent = sessionId;
-          listenToPlayers();
-        } else {
-          // You are a player
-          sessionId = sessionIdFromURL;
-          document.getElementById("discord-login").classList.add("hidden");
-          document.getElementById("player-section").classList.remove("hidden");
-          document.getElementById("session-code-display").textContent = sessionId;
-        }
-      });
+    function backToDashboard() {
+      document.getElementById("session-view").classList.add("hidden");
+      document.getElementById("dashboard-section").classList.remove("hidden");
     }
 
     handleDiscordLogin();
