@@ -244,10 +244,11 @@
       // Show session lock status
       onValue(lockRef, (snap) => {
         const locked = snap.val();
-        const status = `<p><strong>Session is currently ${locked ? "🔒 Locked" : "🔓 Unlocked"}</strong></p>`;
-        document.getElementById("session-details").insertAdjacentHTML("afterbegin", status);
+        const statusContainer = document.getElementById("lock-status");
+        if (statusContainer) {
+          statusContainer.innerHTML = `<p><strong>Session is currently ${locked ? "🔒 Locked" : "🔓 Unlocked"}</strong></p>`;
+        }
       });
-
       // Approved players
       onValue(approvedRef, (snapshot) => {
         const data = snapshot.val() || {};
