@@ -46,23 +46,23 @@
   <div id="session-view" class="section hidden">
     <h2>Session: <span id="view-session-name"></span></h2>
     <div id="view-role"></div>
-    <div id="session-status"></div>
     <div id="session-details"></div>
     <button onclick="backToDashboard()">Back</button>
   </div>
 
   <script>
-    let nickname = "";
-    let userId = "";
-    const discordWebhookUrl = "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"; // Replace this
+    const webhookUrl = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"; // Replace this with your actual webhook URL
 
-    function sendDiscordNotification(message) {
-      fetch(discordWebhookUrl, {
+    async function sendDiscordNotification(message) {
+      await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: message })
-      }).catch((err) => console.error("Discord webhook error:", err));
+      });
     }
+
+    let nickname = "";
+    let userId = "";
 
     function loginWithDiscord() {
       const clientId = "1394705358873690355";
@@ -83,6 +83,7 @@
     async function handleDiscordLogin() {
       const hash = window.location.hash;
       if (!hash.includes("access_token")) return;
+
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get("access_token");
       if (!token) return;
@@ -90,18 +91,22 @@
       const user = await getUserInfoFromDiscord(token);
       nickname = `${user.username}#${user.discriminator}`;
       userId = user.id;
+
       document.getElementById("user-name").textContent = nickname;
       document.getElementById("avatar").src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
       document.getElementById("discord-login").classList.add("hidden");
       document.getElementById("dashboard-section").classList.remove("hidden");
+
       loadUserSessions();
     }
 
     function createSession() {
       const name = prompt("Name your session (e.g. 'curse-of-strahd')")?.toLowerCase().replace(/\s+/g, "-");
       if (!name) return;
+
       const { db, ref, set, get } = window.dndApp;
       const sessionRef = ref(db, `sessions/${name}`);
+
       get(sessionRef).then((snapshot) => {
         if (snapshot.exists()) {
           alert("Session name already exists. Choose another.");
@@ -110,7 +115,6 @@
             dm: { username: nickname, id: userId },
             sessionLocked: false
           }).then(() => {
-            sendDiscordNotification(`📢 New session created: **${name}** by ${nickname}`);
             alert(`Session '${name}' created.`);
             loadUserSessions();
           });
@@ -128,16 +132,27 @@
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers/${userId}`);
 
       get(sessionRef).then((snapshot) => {
-        if (!snapshot.exists()) return alert("That session does not exist.");
+        if (!snapshot.exists()) {
+          alert("That session does not exist.");
+          return;
+        }
+
         const session = snapshot.val();
-        if (session.sessionLocked) return alert("This session is locked.");
+        if (session.sessionLocked) {
+          alert("This session is locked. No new players can join.");
+          return;
+        }
 
-        get(approvedRef).then((aSnap) => {
-          if (aSnap.exists()) return alert("You're already in this session.");
+        get(approvedRef).then((approvedSnap) => {
+          if (approvedSnap.exists()) {
+            alert("You are already part of this session.");
+            return;
+          }
 
-          get(pendingRef).then((pSnap) => {
-            if (pSnap.exists()) {
-              if (confirm("You already requested to join. Cancel it?")) {
+          get(pendingRef).then((pendingSnap) => {
+            if (pendingSnap.exists()) {
+              const cancel = confirm("You already requested to join. Cancel request?");
+              if (cancel) {
                 set(pendingRef, null).then(() => {
                   alert("Request cancelled.");
                   loadUserSessions();
@@ -150,9 +165,13 @@
             const waitUntil = prompt("How long will you wait? (HH:MM)");
             if (!readyAt || !waitUntil) return;
 
-            set(pendingRef, { name: nickname, readyAt, waitUntil }).then(() => {
-              sendDiscordNotification(`📥 ${nickname} requested to join **${name}** (Ready: ${readyAt}, Wait: ${waitUntil})`);
-              alert("Request sent. Waiting for DM approval.");
+            set(pendingRef, {
+              name: nickname,
+              readyAt,
+              waitUntil
+            }).then(() => {
+              sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+              alert("Join request sent. Waiting for DM approval.");
               loadUserSessions();
             });
           });
@@ -160,42 +179,71 @@
       });
     }
 
-    function loadUserSessions() {
-      const { db, ref, get } = window.dndApp;
-      const sessionList = document.getElementById("session-list");
-      sessionList.innerHTML = "Loading...";
-      get(ref(db, "sessions")).then((snapshot) => {
-        const sessions = snapshot.val();
-        sessionList.innerHTML = "";
-        if (!sessions) return (sessionList.innerHTML = "<i>No sessions found.</i>");
+    function lockSession(sessionName) {
+      const { db, ref, update } = window.dndApp;
+      update(ref(db, `sessions/${sessionName}`), { sessionLocked: true }).then(() => {
+        alert("Session locked.");
+        sendDiscordNotification(`🔒 Session '${sessionName}' is now locked by the DM.`);
+      });
+    }
 
-        Object.entries(sessions).forEach(([name, session]) => {
-          let role = "";
-          let isIn = false;
-          if (session.dm?.id === userId) {
-            role = "DM"; isIn = true;
-          } else if (session.approvedPlayers?.[userId]) {
-            role = "Player"; isIn = true;
-          } else if (session.pendingPlayers?.[userId]) {
-            role = "Pending"; isIn = true;
-          }
-          if (isIn) {
-            sessionList.innerHTML += `<div><strong>${name}</strong> (${role})
-              <button onclick="viewSession('${name}', '${role}')">View</button>
-              ${role === "DM" ? `<button onclick="deleteSession('${name}')">Delete</button>` : ""}</div>`;
-          }
+    function approvePlayer(sessionName, playerId) {
+      const { db, ref, get, set } = window.dndApp;
+      const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+
+      get(pendingRef).then((snapshot) => {
+        if (!snapshot.exists()) return;
+        const player = snapshot.val();
+        set(approvedRef, player).then(() => {
+          set(pendingRef, null);
+          sendDiscordNotification(`✅ ${player.name} has been approved for session '${sessionName}'`);
         });
       });
     }
 
-    function deleteSession(name) {
-      if (!confirm(`DELETE session '${name}'?`)) return;
+    function rejectPlayer(sessionName, playerId) {
       const { db, ref, set } = window.dndApp;
-      set(ref(db, `sessions/${name}`), null).then(() => {
-        sendDiscordNotification(`🗑️ ${nickname} deleted session **${name}**.`);
-        alert("Deleted.");
-        loadUserSessions();
-        backToDashboard();
+      const playerName = "Unknown Player"; // Ideally fetch before removing
+      set(ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`), null).then(() => {
+        sendDiscordNotification(`❌ ${playerName} has been rejected from session '${sessionName}'`);
+      });
+    }
+
+    function loadUserSessions() {
+      const { db, ref, get } = window.dndApp;
+      const sessionList = document.getElementById("session-list");
+      sessionList.innerHTML = "Loading...";
+
+      get(ref(db, "sessions")).then((snapshot) => {
+        const sessions = snapshot.val();
+        sessionList.innerHTML = "";
+        if (!sessions) {
+          sessionList.innerHTML = "<i>No sessions found.</i>";
+          return;
+        }
+
+        Object.entries(sessions).forEach(([sessionName, session]) => {
+          let role = "";
+          let isIn = false;
+          if (session.dm && session.dm.id === userId) {
+            role = "DM";
+            isIn = true;
+          } else if (session.approvedPlayers && session.approvedPlayers[userId]) {
+            role = "Player";
+            isIn = true;
+          } else if (session.pendingPlayers && session.pendingPlayers[userId]) {
+            role = "Pending";
+            isIn = true;
+          }
+          if (isIn) {
+            const div = document.createElement("div");
+            div.innerHTML = `<strong>${sessionName}</strong> (${role}) 
+              <button onclick="viewSession('${sessionName}', '${role}')">View</button>
+              ${role === "DM" ? `<button onclick="deleteSession('${sessionName}')">Delete</button>` : ""}`;
+            sessionList.appendChild(div);
+          }
+        });
       });
     }
 
@@ -204,77 +252,50 @@
       document.getElementById("session-view").classList.remove("hidden");
       document.getElementById("view-session-name").textContent = name;
       document.getElementById("view-role").textContent = `You are the ${role}`;
+      const container = document.getElementById("session-details");
+      container.innerHTML = "";
 
-      const { db, ref, onValue, update } = window.dndApp;
-      const sessionRef = ref(db, `sessions/${name}`);
+      const { db, ref, onValue } = window.dndApp;
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
       const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
-      onValue(sessionRef, (snap) => {
-        const data = snap.val();
-        const locked = data.sessionLocked;
-        document.getElementById("session-status").innerHTML = `Session is currently ${locked ? "🔒 Locked" : "🔓 Unlocked"}`;
-        if (role === "DM") {
-          document.getElementById("session-status").innerHTML += `<br><button onclick="${locked ? `unlockSession('${name}')` : `lockSession('${name}')`}">${locked ? "Unlock" : "Lock"} Session</button>`;
-        }
-      });
-
-      onValue(approvedRef, (snap) => {
-        const data = snap.val() || {};
-        let html = "<h3>Approved Players</h3><ul>";
-        for (const id in data) {
-          const p = data[id];
-          html += `<li><strong>${p.name}</strong> - Ready: ${p.readyAt}, Wait: ${p.waitUntil}</li>`;
-        }
-        html += "</ul>";
-        document.getElementById("session-details").innerHTML = html;
+      onValue(approvedRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        let html = "<h3>Approved Players</h3>";
+        html += Object.keys(data).length
+          ? "<ul>" + Object.entries(data).map(([_, p]) => `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}</li>`).join("") + "</ul>"
+          : "<i>No approved players yet.</i>";
+        container.innerHTML = html;
       });
 
       if (role === "DM") {
-        onValue(pendingRef, (snap) => {
-          const data = snap.val() || {};
-          let html = "<h3>Pending Players</h3><ul>";
-          for (const id in data) {
-            const p = data[id];
-            html += `<li><strong>${p.name}</strong> - Ready: ${p.readyAt}, Wait: ${p.waitUntil} <button onclick="approvePlayer('${name}', '${id}')">✅</button> <button onclick="rejectPlayer('${name}', '${id}')">❌</button></li>`;
-          }
-          html += "</ul>";
-          document.getElementById("session-details").innerHTML += html;
+        onValue(pendingRef, (snapshot) => {
+          const data = snapshot.val() || {};
+          let html = "<h3>Pending Players</h3>";
+          html += Object.keys(data).length
+            ? "<ul>" + Object.entries(data).map(([id, p]) =>
+                `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
+                  <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                  <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button></li>`).join("") + "</ul>"
+            : "<i>No pending players.</i>";
+          container.innerHTML += html;
         });
+
+        container.innerHTML += `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`;
       }
     }
 
-    function lockSession(name) {
-      const { db, ref, update } = window.dndApp;
-      update(ref(db, `sessions/${name}`), { sessionLocked: true }).then(() => {
-        sendDiscordNotification(`🔒 ${nickname} locked session **${name}**.`);
-      });
-    }
+    function deleteSession(sessionName) {
+      if (!confirm(`Are you sure you want to DELETE session '${sessionName}'? This cannot be undone.`)) return;
 
-    function unlockSession(name) {
-      const { db, ref, update } = window.dndApp;
-      update(ref(db, `sessions/${name}`), { sessionLocked: false }).then(() => {
-        sendDiscordNotification(`🔓 ${nickname} unlocked session **${name}**.`);
-      });
-    }
-
-    function approvePlayer(name, id) {
-      const { db, ref, get, set } = window.dndApp;
-      const pRef = ref(db, `sessions/${name}/pendingPlayers/${id}`);
-      const aRef = ref(db, `sessions/${name}/approvedPlayers/${id}`);
-      get(pRef).then((snap) => {
-        if (!snap.exists()) return;
-        const data = snap.val();
-        set(aRef, data).then(() => set(pRef, null));
-        sendDiscordNotification(`✅ ${data.name} was approved in **${name}**.`);
-      });
-    }
-
-    function rejectPlayer(name, id) {
       const { db, ref, set } = window.dndApp;
-      set(ref(db, `sessions/${name}/pendingPlayers/${id}`), null).then(() => {
-        sendDiscordNotification(`❌ A player was rejected from **${name}**.`);
-      });
+      set(ref(db, `sessions/${sessionName}`), null)
+        .then(() => {
+          alert("Session deleted.");
+          loadUserSessions();
+          backToDashboard();
+        })
+        .catch((err) => alert("Error deleting session: " + err));
     }
 
     function backToDashboard() {
