@@ -23,7 +23,6 @@
     const db = getDatabase(app);
     window.dndApp = { db, ref, set, onValue, get, update, remove };
   </script>
-  <script type="module" src="app.js"></script>
 </head>
 <body>
   <h1>D&D Session Manager</h1>
@@ -50,5 +49,6 @@
     <div id="session-details"></div>
     <button onclick="backToDashboard()">Back</button>
   </div>
+<script type="module" src="app.js"></script>
 </body>
 </html>
