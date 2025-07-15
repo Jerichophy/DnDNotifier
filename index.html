@@ -183,61 +183,55 @@
       });
     }
 
-    function approvePlayer(name, id) {
+    function approvePlayer(sessionName, playerId) {
       const { db, ref, get, set } = window.dndApp;
-      const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${id}`);
-      const approvedRef = ref(db, `sessions/${name}/approvedPlayers/${id}`);
+      const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
 
       get(pendingRef).then((snapshot) => {
         if (!snapshot.exists()) return;
         const player = snapshot.val();
         set(approvedRef, player).then(() => {
           set(pendingRef, null);
-          sendDiscordNotification(`✅ ${player.name} has been approved for session '${name}'`);
+          sendDiscordNotification(`✅ ${player.name} has been approved for session '${sessionName}'`);
         });
       });
     }
 
-    function rejectPlayer(name, id) {
+    function rejectPlayer(sessionName, playerId) {
       const { db, ref, set } = window.dndApp;
-      set(ref(db, `sessions/${name}/pendingPlayers/${id}`), null).then(() => {
-        sendDiscordNotification(`❌ A player has been rejected from session '${name}'`);
+      set(ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`), null).then(() => {
+        sendDiscordNotification(`❌ A player has been rejected from session '${sessionName}'`);
       });
     }
 
-    function lockSession(name) {
+    function lockSession(sessionName) {
       const { db, ref, get, update } = window.dndApp;
-      const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers`);
 
       get(approvedRef).then((snapshot) => {
-        const players = snapshot.val();
-        if (!players) {
+        if (!snapshot.exists()) {
           alert("No approved players to calculate start time.");
           return;
         }
-        const times = Object.values(players).map(p => p.readyAt).filter(Boolean);
-        if (!times.length) {
-          alert("No player availability to set session time.");
+
+        const players = snapshot.val();
+        const readyTimes = Object.values(players).map(p => p.readyAt).filter(Boolean);
+
+        if (readyTimes.length === 0) {
+          alert("No readyAt times found for approved players.");
           return;
         }
-        const latestTime = times.reduce((a, b) => a > b ? a : b);
-        update(ref(db, `sessions/${name}`), { sessionLocked: true, sessionStartTime: latestTime }).then(() => {
-          sendDiscordNotification(`🔒 Session '${name}' locked. Starts at **${latestTime}**.`);
-          alert(`Session locked. Starts at ${latestTime}`);
-          viewSession(name, "DM");
-        });
-      });
-    }
 
-    function unlockSession(name) {
-      const { db, ref, update } = window.dndApp;
-      update(ref(db, `sessions/${name}`), {
-        sessionLocked: false,
-        sessionStartTime: null
-      }).then(() => {
-        sendDiscordNotification(`🔓 Session '${name}' has been unlocked.`);
-        alert("Session unlocked.");
-        viewSession(name, "DM");
+        const latestTime = readyTimes.reduce((latest, time) => time > latest ? time : latest, "00:00");
+
+        update(ref(db, `sessions/${sessionName}`), {
+          sessionLocked: true,
+          sessionStartTime: latestTime
+        }).then(() => {
+          alert(`Session locked. Scheduled start time: ${latestTime}`);
+          sendDiscordNotification(`🔒 Session '${sessionName}' is now locked. Starts at ${latestTime}.`);
+        });
       });
     }
 
@@ -245,32 +239,68 @@
       const { db, ref, get, update } = window.dndApp;
       const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
       get(approvedRef).then((snapshot) => {
+        if (!snapshot.exists()) {
+          alert("No approved players found.");
+          return;
+        }
+        const players = snapshot.val();
         const updates = {
-          [`sessions/${name}/sessionLocked`]: false,
           [`sessions/${name}/sessionStartTime`]: null
         };
-        snapshot.forEach(child => {
-          updates[`sessions/${name}/approvedPlayers/${child.key}/readyAt`] = null;
-          updates[`sessions/${name}/approvedPlayers/${child.key}/waitUntil`] = null;
+        Object.keys(players).forEach(playerId => {
+          updates[`sessions/${name}/approvedPlayers/${playerId}/readyAt`] = null;
+          updates[`sessions/${name}/approvedPlayers/${playerId}/waitUntil`] = null;
         });
-        update(db, updates).then(() => {
+
+        update(ref(db), updates).then(() => {
           sendDiscordNotification(`🔁 A new round has started for session '${name}'.`);
-          alert("New round started. Players can update their times.");
+          alert("New round started. Players can now update their availability.");
           viewSession(name, "DM");
         });
       });
     }
 
-    function deleteSession(name) {
-      const { db, ref, remove } = window.dndApp;
-      if (confirm(`Are you sure you want to delete session '${name}'?`)) {
-        remove(ref(db, `sessions/${name}`)).then(() => {
-          sendDiscordNotification(`🗑️ Session '${name}' has been deleted.`);
-          alert("Session deleted.");
-          backToDashboard();
-          loadUserSessions();
+    function backToDashboard() {
+      document.getElementById("session-view").classList.add("hidden");
+      document.getElementById("dashboard-section").classList.remove("hidden");
+      loadUserSessions();
+    }
+
+    function loadUserSessions() {
+      const { db, ref, get } = window.dndApp;
+      const sessionList = document.getElementById("session-list");
+      sessionList.innerHTML = "Loading...";
+
+      get(ref(db, "sessions")).then((snapshot) => {
+        const sessions = snapshot.val();
+        sessionList.innerHTML = "";
+        if (!sessions) {
+          sessionList.innerHTML = "<i>No sessions found.</i>";
+          return;
+        }
+
+        Object.entries(sessions).forEach(([sessionName, session]) => {
+          let role = "";
+          let isIn = false;
+          if (session.dm && session.dm.id === userId) {
+            role = "DM";
+            isIn = true;
+          } else if (session.approvedPlayers && session.approvedPlayers[userId]) {
+            role = "Player";
+            isIn = true;
+          } else if (session.pendingPlayers && session.pendingPlayers[userId]) {
+            role = "Pending";
+            isIn = true;
+          }
+          if (isIn) {
+            const div = document.createElement("div");
+            div.innerHTML = `<strong>${sessionName}</strong> (${role}) 
+              <button onclick="viewSession('${sessionName}', '${role}')">View</button>
+              ${role === "DM" ? `<button onclick="startNewRound('${sessionName}')">🔁 Start New Round</button>` : ""}`;
+            sessionList.appendChild(div);
+          }
         });
-      }
+      });
     }
 
     function viewSession(name, role) {
@@ -281,20 +311,13 @@
       const container = document.getElementById("session-details");
       container.innerHTML = "";
 
-      const { db, ref, get, onValue } = window.dndApp;
-      const sessionRef = ref(db, `sessions/${name}`);
+      const { db, ref, onValue } = window.dndApp;
 
-      get(sessionRef).then((snapshot) => {
+      const sessionRef = ref(db, `sessions/${name}`);
+      onValue(sessionRef, (snapshot) => {
         const session = snapshot.val();
         if (session.sessionStartTime) {
           container.innerHTML += `<p><strong>Session Start Time:</strong> ${session.sessionStartTime}</p>`;
-        }
-        if (role === "DM") {
-          container.innerHTML += session.sessionLocked
-            ? `<button onclick="unlockSession('${name}')">🔓 Unlock Session</button>`
-            : `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`;
-          container.innerHTML += `<button onclick="startNewRound('${name}')">🔁 Start New Round</button>`;
-          container.innerHTML += `<button onclick="deleteSession('${name}')">🗑️ Delete Session</button>`;
         }
       });
 
@@ -305,7 +328,7 @@
         const data = snapshot.val() || {};
         let html = "<h3>Approved Players</h3>";
         html += Object.keys(data).length
-          ? "<ul>" + Object.entries(data).map(([_, p]) => `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'}</li>`).join("") + "</ul>"
+          ? "<ul>" + Object.entries(data).map(([_, p]) => `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "-"}, Wait Until ${p.waitUntil || "-"}</li>`).join("") + "</ul>"
           : "<i>No approved players yet.</i>";
         container.innerHTML += html;
       });
@@ -322,47 +345,10 @@
             : "<i>No pending players.</i>";
           container.innerHTML += html;
         });
+
+        container.innerHTML += `<button onclick="lockSession('${name}')">🔒 Lock Session</button>
+          <button onclick="startNewRound('${name}')">🔁 Start New Round</button>`;
       }
-    }
-
-    function loadUserSessions() {
-      const { db, ref, get } = window.dndApp;
-      const sessionList = document.getElementById("session-list");
-      sessionList.innerHTML = "Loading...";
-
-      get(ref(db, "sessions")).then((snapshot) => {
-        const sessions = snapshot.val();
-        sessionList.innerHTML = "";
-        if (!sessions) {
-          sessionList.innerHTML = "<i>No sessions found.</i>";
-          return;
-        }
-
-        Object.entries(sessions).forEach(([name, session]) => {
-          let role = "";
-          let isIn = false;
-          if (session.dm?.id === userId) {
-            role = "DM";
-            isIn = true;
-          } else if (session.approvedPlayers?.[userId]) {
-            role = "Player";
-            isIn = true;
-          } else if (session.pendingPlayers?.[userId]) {
-            role = "Pending";
-            isIn = true;
-          }
-
-          if (isIn) {
-            sessionList.innerHTML += `<div><strong>${name}</strong> (${role}) <button onclick="viewSession('${name}', '${role}')">View</button></div>`;
-          }
-        });
-      });
-    }
-
-    function backToDashboard() {
-      document.getElementById("session-view").classList.add("hidden");
-      document.getElementById("dashboard-section").classList.remove("hidden");
-      loadUserSessions();
     }
 
     window.onload = handleDiscordLogin;
