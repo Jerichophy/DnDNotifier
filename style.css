@@ -1,53 +1,52 @@
 body {
-  background-color: #121212;
-  color: #eee;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  padding: 20px;
-  max-width: 600px;
-  margin: auto;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f0f0f0;
+  color: #333;
+  margin: 0;
+  padding: 0;
 }
-
-h1, h2, h3 {
+h1 {
   text-align: center;
+  margin-top: 20px;
 }
-
-input, button, select {
-  padding: 10px;
-  margin: 5px 0;
-  width: 100%;
-  border-radius: 6px;
-  border: 1px solid #444;
-  background-color: #222;
-  color: white;
-  font-size: 16px;
-}
-
-button {
-  background-color: #7289da;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.2s;
-}
-
-button:hover {
-  background-color: #5b6eae;
-}
-
 .section {
-  margin: 30px 0;
+  background: white;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
-
-.hidden {
+.section.hidden {
   display: none;
 }
-
-.player-row {
-  border-bottom: 1px solid #333;
-  padding: 10px 0;
+input[type="text"], input[type="time"] {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 8px;
 }
-
-input[type="time"] {
-  background-color: #1c1c2b;
-  color: #eee;
+button {
+  background-color: #6200ea;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  margin-top: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+button:hover {
+  background-color: #3700b3;
+}
+#session-list div, #session-details div {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+#avatar {
+  display: block;
+  margin: 10px auto;
+  border-radius: 50%;
 }

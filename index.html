@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, get, child } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCo1UDoLEKLyK0xGUS3SPp-Pl7h6M2viq8",
@@ -21,7 +21,7 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window.dndApp = { db, ref, set, onValue, get, child };
+    window.dndApp = { db, ref, set, onValue, get };
   </script>
 </head>
 <body>
@@ -94,7 +94,7 @@
       const name = prompt("Name your session (e.g. 'curse-of-strahd')").toLowerCase().replace(/\s+/g, "-");
       if (!name) return;
 
-      const { db, ref, set, get, child } = window.dndApp;
+      const { db, ref, set, get } = window.dndApp;
       const sessionRef = ref(db, `sessions/${name}`);
 
       get(sessionRef).then(snapshot => {
@@ -102,10 +102,7 @@
           alert("Session name already exists. Choose another.");
         } else {
           set(sessionRef, {
-            dm: {
-              username: nickname,
-              id: userId
-            }
+            dm: { username: nickname, id: userId }
           }).then(() => {
             alert(`Session '${name}' created.`);
             loadUserSessions();
