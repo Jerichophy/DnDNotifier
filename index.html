@@ -100,6 +100,100 @@
       loadUserSessions();
     }
 
+    function createSession() {
+      const name = prompt("Name your session (e.g. 'curse-of-strahd')")?.toLowerCase().replace(/\s+/g, "-");
+      if (!name) return;
+
+      const { db, ref, set, get } = window.dndApp;
+      const sessionRef = ref(db, `sessions/${name}`);
+
+      get(sessionRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          alert("Session name already exists. Choose another.");
+        } else {
+          set(sessionRef, {
+            dm: { username: nickname, id: userId },
+            sessionLocked: false
+          }).then(() => {
+            alert(`Session '${name}' created.`);
+            loadUserSessions();
+          });
+        }
+      });
+    }
+
+    function joinSession() {
+      const name = document.getElementById("session-id-input").value.trim().toLowerCase();
+      if (!name) return;
+
+      const { db, ref, set, get } = window.dndApp;
+      const sessionRef = ref(db, `sessions/${name}`);
+      const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${userId}`);
+      const approvedRef = ref(db, `sessions/${name}/approvedPlayers/${userId}`);
+
+      get(sessionRef).then((snapshot) => {
+        if (!snapshot.exists()) {
+          alert("That session does not exist.");
+          return;
+        }
+
+        const session = snapshot.val();
+        if (session.sessionLocked) {
+          alert("This session is locked. No new players can join.");
+          return;
+        }
+
+        get(approvedRef).then((approvedSnap) => {
+          if (approvedSnap.exists()) {
+            alert("You are already part of this session.");
+            return;
+          }
+
+          get(pendingRef).then((pendingSnap) => {
+            if (pendingSnap.exists()) {
+              const cancel = confirm("You already requested to join. Cancel request?");
+              if (cancel) {
+                set(pendingRef, null).then(() => {
+                  alert("Request cancelled.");
+                  loadUserSessions();
+                });
+              }
+              return;
+            }
+
+            const readyAt = prompt("What time are you ready? (HH:MM)");
+            const waitUntil = prompt("How long will you wait? (HH:MM)");
+            if (!readyAt || !waitUntil) return;
+
+            set(pendingRef, {
+              name: nickname,
+              readyAt,
+              waitUntil
+            }).then(() => {
+              sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+              alert("Join request sent. Waiting for DM approval.");
+              loadUserSessions();
+            });
+          });
+        });
+      });
+    }
+
+    function approvePlayer(sessionName, playerId) {
+      const { db, ref, get, set } = window.dndApp;
+      const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+
+      get(pendingRef).then((snapshot) => {
+        if (!snapshot.exists()) return;
+        const player = snapshot.val();
+        set(approvedRef, player).then(() => {
+          set(pendingRef, null);
+          sendDiscordNotification(`✅ ${player.name} has been approved for session '${sessionName}'`);
+        });
+      });
+    }
+
     function lockSession(sessionName) {
       const { db, ref, get, update } = window.dndApp;
       const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers`);
@@ -111,10 +205,7 @@
         }
 
         const players = snapshot.val();
-        const readyTimes = Object.values(players)
-          .map(p => p.readyAt)
-          .filter(Boolean);
-
+        const readyTimes = Object.values(players).map(p => p.readyAt).filter(Boolean);
         if (readyTimes.length === 0) {
           alert("No readyAt times found for approved players.");
           return;
@@ -132,6 +223,41 @@
       });
     }
 
+    function loadUserSessions() {
+      const { db, ref, get } = window.dndApp;
+      const sessionList = document.getElementById("session-list");
+      sessionList.innerHTML = "Loading...";
+
+      get(ref(db, "sessions")).then((snapshot) => {
+        const sessions = snapshot.val();
+        sessionList.innerHTML = "";
+        if (!sessions) {
+          sessionList.innerHTML = "<i>No sessions found.</i>";
+          return;
+        }
+
+        Object.entries(sessions).forEach(([sessionName, session]) => {
+          let role = "";
+          let isIn = false;
+          if (session.dm && session.dm.id === userId) {
+            role = "DM";
+            isIn = true;
+          } else if (session.approvedPlayers && session.approvedPlayers[userId]) {
+            role = "Player";
+            isIn = true;
+          } else if (session.pendingPlayers && session.pendingPlayers[userId]) {
+            role = "Pending";
+            isIn = true;
+          }
+          if (isIn) {
+            const div = document.createElement("div");
+            div.innerHTML = `<strong>${sessionName}</strong> (${role}) <button onclick="viewSession('${sessionName}', '${role}')">View</button>`;
+            sessionList.appendChild(div);
+          }
+        });
+      });
+    }
+
     function viewSession(name, role) {
       document.getElementById("dashboard-section").classList.add("hidden");
       document.getElementById("session-view").classList.remove("hidden");
@@ -141,8 +267,8 @@
       container.innerHTML = "";
 
       const { db, ref, get, onValue } = window.dndApp;
-
       const sessionRef = ref(db, `sessions/${name}`);
+
       get(sessionRef).then((snapshot) => {
         const session = snapshot.val();
         if (session.sessionStartTime) {
@@ -179,6 +305,12 @@
 
         container.innerHTML += `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`;
       }
+    }
+
+    function backToDashboard() {
+      document.getElementById("session-view").classList.add("hidden");
+      document.getElementById("dashboard-section").classList.remove("hidden");
+      loadUserSessions();
     }
 
     window.onload = handleDiscordLogin;
