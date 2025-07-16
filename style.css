@@ -1,52 +1,118 @@
-body {
-  font-family: 'Segoe UI', sans-serif;
-  background-color: #f0f0f0;
-  color: #333;
+/* Import fantasy-themed font */
+@import url('https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=IM+Fell+English+SC&display=swap');
+
+/* Reset and base styling */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-h1 {
+
+body {
+  background: url('https://www.transparenttextures.com/patterns/aged-paper.png'); /* subtle parchment texture */
+  background-color: #fdf3e7;
+  font-family: 'IM Fell English SC', serif;
+  color: #3e1e00;
   text-align: center;
-  margin-top: 20px;
+  padding: 40px 20px;
+  min-height: 100vh;
 }
+
+/* Headings with fantasy font */
+h1, h2, h3 {
+  font-family: 'UnifrakturCook', cursive;
+  color: #4b2e05;
+  text-shadow: 1px 1px #e2cba3;
+  margin-bottom: 20px;
+}
+
+/* Main container sections */
 .section {
-  background: white;
+  background: rgba(253, 243, 231, 0.9);
+  border: 2px solid #a87b3f;
+  border-radius: 15px;
+  padding: 25px;
+  margin: 30px auto;
   max-width: 600px;
-  margin: 20px auto;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  box-shadow: 0 0 20px rgba(126, 70, 23, 0.2);
+  transition: transform 0.3s ease;
 }
-.section.hidden {
+
+.section:hover {
+  transform: scale(1.01);
+}
+
+.hidden {
   display: none;
 }
-input[type="text"], input[type="time"] {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-  box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-button {
-  background-color: #6200ea;
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  margin-top: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-button:hover {
-  background-color: #3700b3;
-}
-#session-list div, #session-details div {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-}
+
+/* Avatar Image */
 #avatar {
-  display: block;
-  margin: 10px auto;
   border-radius: 50%;
+  border: 3px solid #a87b3f;
+  margin: 10px auto;
+  box-shadow: 0 0 12px rgba(128, 64, 0, 0.5);
+}
+
+/* Fantasy Buttons */
+button {
+  background: linear-gradient(145deg, #c29556, #ad7334);
+  border: 2px solid #5c2e00;
+  color: #fff8e7;
+  font-size: 1.1rem;
+  font-family: 'IM Fell English SC', serif;
+  padding: 12px 28px;
+  border-radius: 10px;
+  margin: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(92, 46, 0, 0.4);
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: linear-gradient(145deg, #dfa25f, #c88045);
+  box-shadow: 0 0 18px rgba(150, 75, 0, 0.6);
+  transform: scale(1.05);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Inputs */
+input[type="text"] {
+  padding: 10px;
+  width: 80%;
+  max-width: 300px;
+  border-radius: 8px;
+  border: 2px solid #c0a378;
+  background-color: #fffaf0;
+  font-family: 'IM Fell English SC', serif;
+  color: #3e1e00;
+  margin: 12px auto;
+}
+
+/* Session Cards */
+#session-list div {
+  background: rgba(255, 248, 225, 0.85);
+  margin: 10px auto;
+  padding: 12px;
+  border: 1px solid #a87b3f;
+  border-radius: 10px;
+  box-shadow: 0 0 8px rgba(92, 46, 0, 0.2);
+  transition: background 0.3s;
+}
+
+#session-list div:hover {
+  background: rgba(255, 248, 225, 1);
+}
+
+/* Lists */
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  margin: 6px 0;
 }
