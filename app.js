@@ -95,27 +95,17 @@ async function autoJoinAndViewSession(sessionName) {
     return;
   }
 
-  console.log("[DEBUG] User not found in approved or pending. Prompting for readiness...");
-
-  const readyAt = prompt("What time are you ready? (HH:MM)");
-  const waitUntil = prompt("How long will you wait? (HH:MM)");
-  if (!readyAt || !waitUntil) {
-    console.warn("[DEBUG] User cancelled readiness prompts.");
-    return;
-  }
-
-  console.log(`[DEBUG] Submitting join request with readyAt: ${readyAt}, waitUntil: ${waitUntil}`);
-
   await set(pendingRef, {
     name: nickname,
-    readyAt,
-    waitUntil
+    readyAt: null,
+    waitUntil: null
   });
 
-  sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-  alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
+  sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — availability will be set later.`);
+  alert("Join request sent. Waiting for DM approval.");
 
   viewSession(sessionName, "Pending");
+
 }
 
 
@@ -239,25 +229,13 @@ function joinSession() {
           return;
         }
 
-        const readyAt = prompt("What time are you ready? (HH:MM)");
-        const waitUntil = prompt("How long will you wait? (HH:MM)");
-        if (!readyAt || !waitUntil) return;
-
-        const jesterWarning = `🎭 Ahem! By joining this noble quest, you swear upon the sacred dice 🐉:\n\n"Those who join **must** honor the session time. Tardiness shall be punished with a **100 gold penalty**, to be split among those valiant adventurers already present in the call!"\n\nNo excuses! Not even a dragon attack. 🐲`;
-
-        set(pendingRef, {
-          name: nickname,
-          readyAt,
-          waitUntil
-        }).then(() => {
-          sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-          alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
-          loadUserSessions();
-        });
+        // Open modal instead of prompting
+        openAvailabilityModal(name, userId, "", "", "pending");
       });
     });
   });
 }
+
 
 function approvePlayer(name, id) {
   const { db, ref, get, set } = window.dndApp;
@@ -587,23 +565,51 @@ function loadUserSessions() {
   });
 }
 
-function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "") {
+function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
   document.getElementById("availability-modal").classList.remove("hidden");
 
   const readyInput = document.getElementById("readyAt");
   const waitInput = document.getElementById("waitUntil");
 
-  // Pre-fill if existing values exist
   if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
   if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
 
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
+  document.getElementById("modal-role").value = role;
 }
 
 function closeAvailabilityModal() {
   document.getElementById("availability-modal").classList.add("hidden");
 }
+
+function savePendingAvailability(sessionName, playerId) {
+  const readyHTML = document.getElementById("readyAt").value;
+  const waitHTML = document.getElementById("waitUntil").value;
+
+  const readyAt = fromHTMLDatetime(readyHTML);
+  const waitUntil = fromHTMLDatetime(waitHTML);
+
+  if (!readyAt || !waitUntil) {
+    alert("Both fields are required.");
+    return;
+  }
+
+  const { db, ref, set } = window.dndApp;
+  const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+
+  set(pendingRef, {
+    name: nickname,
+    readyAt,
+    waitUntil
+  }).then(() => {
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+    alert("Join request sent. Waiting for DM approval.\n\n🎭 By joining, you swear to honor the time. Tardiness = 100 gold penalty.");
+    closeAvailabilityModal();
+    loadUserSessions();
+  });
+}
+
 
 // Converts string "08-12 18:30" to "2025-08-12T18:30"
 function toHTMLDatetime(str) {
@@ -630,35 +636,47 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
-    document.getElementById("availability-form").addEventListener("submit", async function (e) {
+  document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
     const sessionName = document.getElementById("modal-session-name").value;
     const playerId = document.getElementById("modal-player-id").value;
     const readyHTML = document.getElementById("readyAt").value;
     const waitHTML = document.getElementById("waitUntil").value;
+    const context = document.getElementById("modal-context").value || "approved";
 
     const readyAt = fromHTMLDatetime(readyHTML);
     const waitUntil = fromHTMLDatetime(waitHTML);
 
     const { db, ref, set, get } = window.dndApp;
-    const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
 
-    const snap = await get(approvedRef);
-    if (!snap.exists()) return alert("Player not found.");
+    const playerRef = ref(db, `sessions/${sessionName}/${context === "pending" ? "pendingPlayers" : "approvedPlayers"}/${playerId}`);
+    const snap = await get(playerRef);
+
+    if (!snap.exists()) {
+      return alert("Player not found.");
+    }
 
     const player = snap.val();
 
-    await set(approvedRef, {
+    await set(playerRef, {
       ...player,
+      name: nickname,
       readyAt,
       waitUntil
     });
 
-    sendDiscordNotification(`✏️ ${player.name} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-    alert("Availability updated!");
+    const message =
+      context === "pending"
+        ? `🎲 ${player.name} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
+        : `✏️ ${player.name} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
+
+    sendDiscordNotification(message);
+    alert(context === "pending" ? "Join request sent. Waiting for DM approval." : "Availability updated!");
     closeAvailabilityModal();
+    loadUserSessions();
   });
+
   console.log("[DEBUG] Page loaded. Checking URL and localStorage for join info...");
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join");
@@ -677,47 +695,38 @@ window.onload = async () => {
   let userInfo = await handleDiscordLogin();
 
   if (!userInfo) {
-    // If not logged in yet, and there's a ?join param, save it and redirect to Discord login
     if (joinName) {
       localStorage.setItem("pendingJoin", joinName);
     }
     loginWithDiscord();
-    return; // stop here until after login
+    return;
   }
 
-  if (userInfo) {
-    console.log(`[DEBUG] User info loaded:`, userInfo);
-    userId = userInfo.userId;
-    nickname = userInfo.nickname;
+  console.log(`[DEBUG] User info loaded:`, userInfo);
+  userId = userInfo.userId;
+  nickname = userInfo.nickname;
 
-    document.getElementById("user-name").textContent = nickname;
-    document.getElementById("avatar").src = userInfo.avatar
-      ? `https://cdn.discordapp.com/avatars/${userId}/${userInfo.avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(userInfo.discriminator) % 5}.png`;
+  document.getElementById("user-name").textContent = nickname;
+  document.getElementById("avatar").src = userInfo.avatar
+    ? `https://cdn.discordapp.com/avatars/${userId}/${userInfo.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${parseInt(userInfo.discriminator) % 5}.png`;
 
-    document.getElementById("discord-login").classList.add("hidden");
-    document.getElementById("dashboard-section").classList.remove("hidden");
-  } else {
-    console.log("[DEBUG] No user info found. User not logged in.");
-  }
+  document.getElementById("discord-login").classList.add("hidden");
+  document.getElementById("dashboard-section").classList.remove("hidden");
 
   if (joinName && userInfo && userInfo.userId) {
-    userId = userInfo.userId;
-    nickname = userInfo.nickname;
-
     console.log(`[DEBUG] Attempting auto-join with session '${joinName}' for user '${userId}'`);
     await autoJoinAndViewSession(joinName.toLowerCase());
     return;
   }
 
-  if (userInfo) {
-    console.log("[DEBUG] Loading user sessions...");
-    loadUserSessions();
-  }
+  console.log("[DEBUG] Loading user sessions...");
+  loadUserSessions();
 
   console.log("[DEBUG] Cleaning URL to remove tokens/join params");
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
