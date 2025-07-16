@@ -602,7 +602,7 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
 
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
-  document.getElementById("modal-role").value = role;
+  document.getElementById("modal-context").value = role;
 }
 
 function closeAvailabilityModal() {
@@ -680,7 +680,7 @@ window.onload = async () => {
     const playerId = document.getElementById("modal-player-id").value;
     const readyHTML = document.getElementById("readyAt").value;
     const waitHTML = document.getElementById("waitUntil").value;
-    const context = document.getElementById("modal-role").value || "approved";
+    const context = document.getElementById("modal-context").value || "approved";
 
     const readyAt = fromHTMLDatetime(readyHTML);
     const waitUntil = fromHTMLDatetime(waitHTML);
