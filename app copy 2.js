@@ -30,6 +30,7 @@ function loginWithDiscord() {
   window.location.href = discordAuthUrl;
 }
 
+
 async function getUserInfoFromDiscord(token) {
   try {
     const response = await fetch("https://discord.com/api/users/@me", {
@@ -110,6 +111,7 @@ async function autoJoinAndViewSession(sessionName) {
 
 }
 
+
 async function handleDiscordLogin() {
   const hash = window.location.hash;
   if (!hash.includes("access_token")) {
@@ -150,6 +152,8 @@ async function handleDiscordLogin() {
     discriminator: user.discriminator
   };
 }
+
+
 
 function createSession() {
   const rawName = prompt("Name your session (e.g. 'curse-of-strahd')");
@@ -254,6 +258,8 @@ function joinSession(sessionNameFromLink) {
   });
 }
 
+
+
 function approvePlayer(name, id) {
   const { db, ref, get, set } = window.dndApp;
   const pendingRef = ref(db, `sessions/${name}/pendingPlayers/${id}`);
@@ -287,47 +293,45 @@ function lockSession(name) {
       return;
     }
 
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const allAvailability = Object.values(players).map(p => p.availability);
+    const allTimes = Object.values(players).filter(p => p.readyAt && p.waitUntil);
 
-    let matchedDayTime = null;
+  if (allTimes.length === 0) {
+    const jesterConflictMessages = [
+      `🎨 *Nyehehe~!* I looked at your times and—oh no! No one wants to play at the same time! 💔\nTry again, okay? Maybe this time you'll align your stars or your clocks. 🕒🌟`,
+      `🖌️ *I painted a beautiful schedule... but then it exploded.* Boom! 🎆 No shared time for **'${name}'**. Try again, my sweet little muffins! 💙`,
+      `📜 *Sprinkle tried to schedule everyone but now he's crying.* 😭 There's no overlapping time for **'${name}'**. Fix it before he throws cookies at you! 🍪💥`
+    ];
+    sendDiscordNotification(jesterConflictMessages[Math.floor(Math.random() * jesterConflictMessages.length)]);
+    alert("No player availability to set session time.");
+    return;
+  }
 
-    for (const day of days) {
-      const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
+    // Get the latest readyAt among all players
+    const latestReadyAt = allTimes.reduce((latest, p) => {
+      return new Date(p.readyAt) > new Date(latest) ? p.readyAt : latest;
+    }, allTimes[0].readyAt);
 
-      if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
+    // Check if this time is acceptable for all players
+    const conflicts = allTimes.filter(p => new Date(p.waitUntil) < new Date(latestReadyAt));
 
-      const latestStart = dailySlots.reduce((latest, t) => latest > t.start ? latest : t.start, "00:00");
-      const earliestEnd = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
-
-      if (latestStart < earliestEnd) {
-        matchedDayTime = { day, start: latestStart, end: earliestEnd };
-        break;
-      }
-    }
-
-    if (!matchedDayTime) {
-      const jesterConflictMessages = [
-        `🎨 *Nyehehe~!* No one picked the same time and day! Try again, my cupcakes! 🧁✨`,
-        `📜 Sprinkle tried, but there's no shared time in the stars. 💫`,
-        `🖌️ Jester painted chaos — no overlapping schedule! Fix it before Sprinkle eats your calendar. 🍪📆`
-      ];
-      sendDiscordNotification(jesterConflictMessages[Math.floor(Math.random() * jesterConflictMessages.length)]);
-      alert("No overlapping day/time found.");
+    if (conflicts.length > 0) {
+      const conflictNames = conflicts.map(p => p.name).join(", ");
+      alert(`❌ Session cannot be locked.\nThe proposed time (${latestReadyAt}) is too late for: ${conflictNames}.`);
       return;
     }
 
+    // Lock session and save sessionStartTime
     update(ref(db, `sessions/${name}`), {
       sessionLocked: true,
-      sessionStartTime: `${matchedDayTime.day} ${matchedDayTime.start}–${matchedDayTime.end}`
+      sessionStartTime: latestReadyAt
     }).then(() => {
+      const { db, ref, get } = window.dndApp;
       get(ref(db, `sessions/${name}`)).then((sessionSnap) => {
         const session = sessionSnap.val();
-        const message = getJesterLockMessage(name, `${matchedDayTime.day} ${matchedDayTime.start}–${matchedDayTime.end}`, session.dm.id, Object.keys(players));
+        const message = getJesterLockMessage(name, latestReadyAt, session.dm.id, Object.keys(players));
         sendDiscordNotification(message);
       });
-
-      alert(`✅ Session locked for ${matchedDayTime.day} from ${matchedDayTime.start} to ${matchedDayTime.end}`);
+      alert(`✅ Session locked. Starts at ${latestReadyAt}`);
       viewSession(name, "DM");
     });
 
@@ -517,6 +521,9 @@ function viewSession(name, role) {
       const isSelfPending = !!pendingPlayer;
       const isSelfApproved = !!approvedPlayer;
 
+      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt || "";
+      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil || "";
+
       const isPlayer = (role === "Player" || role === "Pending");
       const notLocked = !session.sessionLocked;
       const isInSession = isSelfPending || isSelfApproved;
@@ -524,7 +531,7 @@ function viewSession(name, role) {
       if (isPlayer && isInSession && notLocked && !window._availabilityPromptedPerSession[name]) {
         window._availabilityPromptedPerSession[name] = true;
 
-        openAvailabilityModal(name, userId, isSelfPending ? "pending" : "approved");
+        openAvailabilityModal(name, userId, readyAt, waitUntil, isSelfPending ? "pending" : "approved");
 
         const notice = document.createElement("div");
         notice.innerHTML = `
@@ -548,9 +555,8 @@ function viewSession(name, role) {
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
-                  return `<li><strong>${p.name}</strong><br>
-                    ${formatAvailability(p.availability)}
-                    ${canEdit ? `<br><button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
+                    ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
                 }).join("") +
                 "</ul>"
@@ -558,6 +564,7 @@ function viewSession(name, role) {
           }
         </div>
       `;
+      // Remove any previous Approved Players section
       const oldApproved = container.querySelector("#approved-players-section");
       if (oldApproved) oldApproved.remove();
 
@@ -565,6 +572,7 @@ function viewSession(name, role) {
       approvedWrapper.id = "approved-players-section";
       approvedWrapper.innerHTML = html;
       container.appendChild(approvedWrapper);
+
     });
 
     // ⏳ Pending players list
@@ -578,9 +586,8 @@ function viewSession(name, role) {
               Object.keys(data).length
                 ? "<ul>" +
                   Object.entries(data).map(([id, p]) => {
-                    return `<li><strong>${p.name}</strong><br>
-                      ${formatAvailability(p.availability)}
-                      <br><button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                    return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
+                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
                       <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
                     </li>`;
                   }).join("") +
@@ -603,13 +610,6 @@ function viewSession(name, role) {
   });
 }
 
-function formatAvailability(availability) {
-  if (!availability) return "<i>No availability set</i>";
-  return Object.entries(availability)
-    .map(([day, range]) => `${day}: ${range.start}–${range.end}`)
-    .join("<br>");
-}
-
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
   const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
@@ -617,7 +617,7 @@ function editAvailability(sessionName, playerId) {
   get(approvedRef).then((snap) => {
     if (!snap.exists()) return;
     const player = snap.val();
-    openAvailabilityModal(sessionName, playerId, "approved", player.availability || {});
+    openAvailabilityModal(sessionName, playerId, player.readyAt || "", player.waitUntil || "");
   });
 }
 
@@ -709,21 +709,23 @@ function savePendingAvailability(sessionName, playerId) {
   });
 }
 
-const { DateTime } = luxon;
-
+// Converts string "08-12 18:30" to "2025-08-12T18:30"
 function toHTMLDatetime(str) {
   if (!str) return "";
-  const dt = DateTime.fromFormat(str, "MM-dd HH:mm", { zone: "local" });
-  if (!dt.isValid) return "";
-  const dtWithYear = dt.set({ year: new Date().getFullYear() });
-  return dtWithYear.toISO({ suppressSeconds: true, suppressMilliseconds: true }).slice(0,16);
+  const [month, day, time] = str.split(/[-\s]/);
+  const year = new Date().getFullYear(); // use current year
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${time}`;
 }
 
+// Converts HTML datetime-local back to MM-DD HH:MM
 function fromHTMLDatetime(htmlDateStr) {
-  if (!htmlDateStr || isNaN(Date.parse(htmlDateStr))) return null;
-  const dt = DateTime.fromISO(htmlDateStr, { zone: "local" });
-  if (!dt.isValid) return null;
-  return dt.toFormat("MM-dd HH:mm");
+  if (!htmlDateStr || isNaN(Date.parse(htmlDateStr))) return null; // 👈 Added null check and validation
+  const d = new Date(htmlDateStr);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}-${dd} ${hh}:${mins}`;
 }
 
 function backToDashboard() {

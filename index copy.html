@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <meta charset="UTF-8" />
   <title>D&D Session Manager</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -57,28 +56,20 @@
   </div>
 
   <!-- AVAILABILITY MODAL -->
-  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px;">
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000;">
     <h3>Set Your Availability</h3>
     <form id="availability-form">
+      <label for="readyAt">Ready At:</label><br>
+      <input type="datetime-local" id="readyAt" name="readyAt" required><br><br>
 
-      <p>Please select the exact date & time ranges you are available for each day:</p>
-
-      <div style="margin-bottom: 10px;">
-        <label for="readyAt">Ready At:</label><br />
-        <input type="datetime-local" id="readyAt" name="readyAt" required style="width: 100%;" />
-      </div>
-
-      <div style="margin-bottom: 10px;">
-        <label for="waitUntil">Wait Until:</label><br />
-        <input type="datetime-local" id="waitUntil" name="waitUntil" required style="width: 100%;" />
-      </div>
+      <label for="waitUntil">Wait Until:</label><br>
+      <input type="datetime-local" id="waitUntil" name="waitUntil" required><br><br>
 
       <!-- Hidden context for player role and session info -->
       <input type="hidden" id="modal-session-name" name="sessionName" />
       <input type="hidden" id="modal-player-id" name="playerId" />
-      <input type="hidden" id="modal-context" name="context" />
+      <input type="hidden" id="modal-context" name="context" /> <!-- ✅ Important! -->
 
-      <br />
       <button type="submit">Save Availability</button>
       <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
     </form>
