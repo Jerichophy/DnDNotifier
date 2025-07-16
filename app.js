@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest hiuser na build");
+console.log("Using latest na build");
 
 let nickname = "";
 let userId = "";
@@ -518,6 +518,7 @@ window.onload = async () => {
   // Restore join param from localStorage (if redirected from Discord)
   if (!joinName) {
     joinName = localStorage.getItem("pendingJoin");
+    if (joinName) console.log("[DEBUG] Restored joinName from localStorage:", joinName);
     localStorage.removeItem("pendingJoin");
   }
 
@@ -538,14 +539,19 @@ window.onload = async () => {
   }
 
   if (joinName && userId) {
+    console.log("[DEBUG] Auto-joining session:", joinName);
     await autoJoinAndViewSession(joinName.toLowerCase());
-  } else if (userInfo) {
+    return; // ⛔ STOP here, do NOT fall through to dashboard
+  }
+
+  if (userInfo) {
     loadUserSessions();
   }
 
   // Clean URL
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
