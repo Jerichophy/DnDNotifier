@@ -784,6 +784,7 @@ window.onload = async () => {
   // Set global user info
   userId = userInfo.userId;
   nickname = userInfo.nickname;
+  window.userName = nickname;
 
   // Show user info
   document.getElementById("user-name").textContent = nickname;
