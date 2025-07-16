@@ -448,6 +448,10 @@ function viewSession(name, role) {
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
   const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
+  console.debug("[AVAILABILITY CHECK] pendingRef path:", pendingRef._path?.pieces_);
+  console.debug("[AVAILABILITY CHECK] approvedRef path:", approvedRef._path?.pieces_);
+  Promise.all([get(pendingRef), get(approvedRef)])
+
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
     let content = "";
