@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug last6 build");
+console.log("debug last69 build");
 
 let nickname = "";
 let userId = "";
@@ -92,6 +92,7 @@ async function autoJoinAndViewSession(sessionName) {
   if ((await get(pendingRef)).exists()) {
     console.log("[DEBUG] User is already pending. Viewing session.");
     alert("You already requested to join. Waiting for DM approval.");
+    window._triggeredByJoinClick = true; // ✅ allow availability modal
     viewSession(sessionName, "Pending");
     return;
   }
@@ -105,6 +106,7 @@ async function autoJoinAndViewSession(sessionName) {
   sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — availability will be set later.`);
   alert("Join request sent. Waiting for DM approval.");
 
+  window._triggeredByJoinClick = true;
   viewSession(sessionName, "Pending");
 
 }
@@ -635,6 +637,7 @@ function fromHTMLDatetime(htmlDateStr) {
 }
 
 function backToDashboard() {
+  window._triggeredByJoinClick = false;
   document.getElementById("session-view").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
   loadUserSessions();
