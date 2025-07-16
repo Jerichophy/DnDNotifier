@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest 420 na build");
+console.log("Using latest 69 na build");
 
 let nickname = "";
 let userId = "";
@@ -22,16 +22,15 @@ function loginWithDiscord() {
   const scope = "identify";
   const responseType = "token";
 
-  // Save join param (if exists) to restore later
-  const joinParam = new URLSearchParams(window.location.search).get("join");
-  if (joinParam) {
-    localStorage.setItem("pendingJoin", joinParam);
+  // ✅ Save ?join=... to localStorage if it exists
+  const joinName = new URLSearchParams(window.location.search).get("join");
+  if (joinName) {
+    localStorage.setItem("pendingJoin", joinName);
   }
 
   const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
   window.location.href = discordAuthUrl;
 }
-
 
 async function getUserInfoFromDiscord(token) {
   try {
@@ -110,7 +109,13 @@ async function autoJoinAndViewSession(sessionName) {
 
 async function handleDiscordLogin() {
   const hash = window.location.hash;
-  if (!hash.includes("access_token")) return null; // << return null
+
+  // ✅ Allow already-logged-in users to skip OAuth step
+  if (!hash && userId && nickname) {
+    return { userId, nickname };
+  }
+
+  if (!hash.includes("access_token")) return null;
 
   const params = new URLSearchParams(hash.slice(1));
   const token = params.get("access_token");
@@ -130,7 +135,7 @@ async function handleDiscordLogin() {
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
-  return { userId, nickname }; // << return this
+  return { userId, nickname };
 }
 
 
