@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest app 6.9 build");
+console.log("Using latest app HELP build");
 
 let nickname = "";
 let userId = "";
@@ -446,27 +446,25 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
+  // Wait for user login first
+  await handleDiscordLogin();
+
   const params = new URLSearchParams(window.location.search);
   const joinName = params.get("join");
 
-  // Handle Discord login
-  await handleDiscordLogin();
-
-  if (joinName) {
-    // Prefill the session name
+  if (joinName && userId) {
     document.getElementById("session-id-input").value = joinName;
 
-    // Prompt the user to confirm they want to join
-    const confirmJoin = confirm(`You've been invited to join the session '${joinName}'. Do you want to continue?`);
-    if (confirmJoin) {
-      joinSession();
+    // Automatically attempt to join the session
+    joinSession();
 
-      // Optionally clean the URL after joining
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
+    // Optional: clean the URL so ?join= is removed after use
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else {
+    loadUserSessions(); // fallback: show dashboard
   }
 };
+
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
