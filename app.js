@@ -22,15 +22,14 @@ function loginWithDiscord() {
   const scope = "identify";
   const responseType = "token";
 
-  // ✅ Save ?join=... to localStorage if it exists
+  // Save the current ?join param if present
   const joinName = new URLSearchParams(window.location.search).get("join");
-  if (joinName) {
-    localStorage.setItem("pendingJoin", joinName);
-  }
+  if (joinName) localStorage.setItem("pendingJoin", joinName);
 
   const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
   window.location.href = discordAuthUrl;
 }
+
 
 async function getUserInfoFromDiscord(token) {
   try {
@@ -109,12 +108,6 @@ async function autoJoinAndViewSession(sessionName) {
 
 async function handleDiscordLogin() {
   const hash = window.location.hash;
-
-  // ✅ Allow already-logged-in users to skip OAuth step
-  if (!hash && userId && nickname) {
-    return { userId, nickname };
-  }
-
   if (!hash.includes("access_token")) return null;
 
   const params = new URLSearchParams(hash.slice(1));
@@ -127,16 +120,9 @@ async function handleDiscordLogin() {
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
 
-  document.getElementById("user-name").textContent = nickname;
-  document.getElementById("avatar").src = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
-
-  document.getElementById("discord-login").classList.add("hidden");
-  //document.getElementById("dashboard-section").classList.remove("hidden");
-
   return { userId, nickname };
 }
+
 
 
 function createSession() {
@@ -521,9 +507,8 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
-  const userInfo = await handleDiscordLogin();
-
-  let joinName = new URLSearchParams(window.location.search).get("join");
+  const params = new URLSearchParams(window.location.search);
+  let joinName = params.get("join");
 
   // Restore join param from localStorage (if redirected from Discord)
   if (!joinName) {
@@ -531,22 +516,31 @@ window.onload = async () => {
     localStorage.removeItem("pendingJoin");
   }
 
+  const userInfo = await handleDiscordLogin();
+
   if (userInfo) {
     userId = userInfo.userId;
     nickname = userInfo.nickname;
+
+    // Show user info
+    document.getElementById("user-name").textContent = nickname;
+    document.getElementById("avatar").src = user.avatar
+      ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+
+    document.getElementById("discord-login").classList.add("hidden");
+    document.getElementById("dashboard-section").classList.remove("hidden");
   }
 
   if (joinName && userId) {
     await autoJoinAndViewSession(joinName.toLowerCase());
-  } else {
+  } else if (userInfo) {
     loadUserSessions();
   }
 
-  // Clean up hash and query
+  // Clean URL
   window.history.replaceState({}, document.title, window.location.pathname);
 };
-
-
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
