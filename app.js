@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("no avail3 build");
+console.log("no avail build");
 
 let nickname = "";
 let userId = "";
@@ -572,7 +572,9 @@ function loadUserSessions() {
 }
 
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
-    console.trace("[DEBUG] openAvailabilityModal called with args:", args);
+    console.trace("[DEBUG] openAvailabilityModal called with args:", {
+      sessionName, playerId, currentReadyAt, currentWaitUntil, role
+    });
   return;
 // document.getElementById("availability-modal").classList.remove("hidden");
 //
