@@ -21,9 +21,17 @@ function loginWithDiscord() {
   const redirectUri = encodeURIComponent("https://jerichophy.github.io/DnDNotifier/");
   const scope = "identify";
   const responseType = "token";
+
+  // Save join param (if exists) to restore later
+  const joinParam = new URLSearchParams(window.location.search).get("join");
+  if (joinParam) {
+    localStorage.setItem("pendingJoin", joinParam);
+  }
+
   const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
   window.location.href = discordAuthUrl;
 }
+
 
 async function getUserInfoFromDiscord(token) {
   try {
@@ -510,8 +518,13 @@ function backToDashboard() {
 window.onload = async () => {
   const userInfo = await handleDiscordLogin();
 
-  const params = new URLSearchParams(window.location.search);
-  const joinName = params.get("join");
+  let joinName = new URLSearchParams(window.location.search).get("join");
+
+  // Restore join param from localStorage (if redirected from Discord)
+  if (!joinName) {
+    joinName = localStorage.getItem("pendingJoin");
+    localStorage.removeItem("pendingJoin");
+  }
 
   if (userInfo) {
     userId = userInfo.userId;
@@ -524,6 +537,7 @@ window.onload = async () => {
     loadUserSessions();
   }
 
+  // Clean up hash and query
   window.history.replaceState({}, document.title, window.location.pathname);
 };
 
