@@ -730,8 +730,10 @@ window.onload = async () => {
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join") || localStorage.getItem("pendingJoin");
   if (joinName) {
+    console.log(`[DEBUG] Found ?join=${joinName} in URL`);
     localStorage.setItem("pendingJoin", joinName);
   } else {
+    console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
 
