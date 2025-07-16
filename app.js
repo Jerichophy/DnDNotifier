@@ -524,9 +524,9 @@ window.onload = async () => {
 
     // Show user info
     document.getElementById("user-name").textContent = nickname;
-    document.getElementById("avatar").src = user.avatar
-      ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+    document.getElementById("avatar").src = userInfo.avatar
+      ? `https://cdn.discordapp.com/avatars/${userId}/${userInfo.avatar}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${parseInt(userInfo.discriminator) % 5}.png`;
 
     document.getElementById("discord-login").classList.add("hidden");
     document.getElementById("dashboard-section").classList.remove("hidden");
