@@ -434,6 +434,7 @@ function viewSession(name, role) {
   console.log("[viewSession] session name:", name);
 
   window._triggeredByJoinClick = window._triggeredByJoinClick || false;
+  window._joinedViaInvite = window._joinedViaInvite || false;
 
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
@@ -455,7 +456,6 @@ function viewSession(name, role) {
       content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
 
-    // DM-only tools
     if (role === "DM") {
       const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
       content += `
@@ -482,7 +482,6 @@ function viewSession(name, role) {
 
     container.innerHTML = content;
 
-    // 🔁 Check if current user is pending and missing availability → prompt modal
     Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
       const pendingData = pendingSnap.val() || {};
       const approvedData = approvedSnap.val() || {};
@@ -504,16 +503,6 @@ function viewSession(name, role) {
         !session.sessionLocked &&
         !window._availabilityPrompted;
 
-      console.debug("[AVAILABILITY CHECK]", {
-        _triggeredByJoinClick: window._triggeredByJoinClick,
-        isSelfPending,
-        isSelfApproved,
-        readyAt,
-        waitUntil,
-        shouldPrompt,
-        _availabilityPrompted: window._availabilityPrompted,
-      });
-
       if (shouldPrompt) {
         window._availabilityPrompted = true;
         setTimeout(() => {
@@ -530,8 +519,6 @@ function viewSession(name, role) {
       }
     });
 
-
-    // ✅ Approved players
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
       let html = `
@@ -543,7 +530,6 @@ function viewSession(name, role) {
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
-
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
@@ -556,7 +542,6 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
-    // ⏳ Pending players (for DM view)
     onValue(pendingRef, (snapshot) => {
       const data = snapshot.val() || {};
       if (role === "DM") {
@@ -580,14 +565,15 @@ function viewSession(name, role) {
         container.innerHTML += html;
       }
 
-      // 🔚 Always clear join-click state after view
       window._triggeredByJoinClick = false;
+      window._joinedViaInvite = false;
     });
   });
 
-  // 🔚 Safety fallback
   window._triggeredByJoinClick = false;
+  window._joinedViaInvite = false;
 }
+
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
