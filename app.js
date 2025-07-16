@@ -506,20 +506,21 @@ function viewSession(name, role) {
         !session.sessionLocked &&
         !window._availabilityPrompted;
 
-      console.debug("[AVAILABILITY CHECK]", {
+      // ✅ Logging decision for debugging
+      console.debug("[AVAILABILITY CHECK LOGIC]", {
         _triggeredByJoinClick: window._triggeredByJoinClick,
         _joinedViaInvite: window._joinedViaInvite,
+        role,
         isSelfPending,
         isSelfApproved,
         readyAt,
         waitUntil,
         sessionLocked: session.sessionLocked,
-        shouldPrompt,
-        _availabilityPrompted: window._availabilityPrompted
+        _availabilityPrompted: window._availabilityPrompted,
+        shouldPrompt
       });
 
       if (shouldPrompt) {
-        window._availabilityPrompted = true;
         setTimeout(() => {
           openAvailabilityModal(name, userId, readyAt || "", waitUntil || "", isSelfPending ? "pending" : "approved");
 
@@ -530,6 +531,8 @@ function viewSession(name, role) {
             </p>
           `;
           document.querySelector(".modal")?.appendChild(notice);
+
+          window._availabilityPrompted = true; // ✅ Move here so it's only set if modal was actually shown
         }, 0);
       }
     }).catch((err) => {
@@ -592,7 +595,7 @@ function viewSession(name, role) {
     console.error("🔥 Failed to load session data:", err);
   });
 
-  // Final fallback
+  // Final fallback reset
   window._triggeredByJoinClick = false;
   window._joinedViaInvite = false;
 }
