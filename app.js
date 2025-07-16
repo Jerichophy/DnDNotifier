@@ -169,7 +169,12 @@ function lockSession(name) {
     }
     const latestTime = times.reduce((a, b) => a > b ? a : b);
     update(ref(db, `sessions/${name}`), { sessionLocked: true, sessionStartTime: latestTime }).then(() => {
-      sendDiscordNotification(`🔒 Session '${name}' locked. Starts at **${latestTime}**.`);
+      const { db, ref, get } = window.dndApp;
+      get(ref(db, `sessions/${name}`)).then((sessionSnap) => {
+        const session = sessionSnap.val();
+        const message = getJesterLockMessage(name, latestTime, session.dm.id, Object.keys(players));
+        sendDiscordNotification(message);
+      });
       alert(`Session locked. Starts at ${latestTime}`);
       viewSession(name, "DM");
     });
@@ -186,6 +191,20 @@ function unlockSession(name) {
     alert("Session unlocked.");
     viewSession(name, "DM");
   });
+}
+
+function getJesterLockMessage(sessionName, time, dmId, playerIds) {
+  const dmMention = `<@${dmId}>`;
+  const playerMentions = playerIds.map(id => `<@${id}>`).join(", ");
+
+  const messages = [
+    `Oooohh~! The session **'${sessionName}'** is all locked up! 🗝 Starts at **${time}**!\n${dmMention}, you're in charge — don’t let the cookies burn! 🍪\nPlayers: ${playerMentions} be nice, okay?`,
+    `Ding ding! It's happening! Session **'${sessionName}'** is gonna start at **${time}**! ${dmMention}, bring the sparkles! ✨\nHey ${playerMentions} — don’t be late or I’ll draw mustaches on your tokens!`,
+    `*Whispers magically*... "The winds have spoken!" The session '${sessionName}' begins at **${time}** sharp! ${dmMention} is your fearless leader~\nAll adventurers ${playerMentions} better be ready or else... teeehee.`,
+    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`
+  ];
+
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 function startNewRound(name) {
