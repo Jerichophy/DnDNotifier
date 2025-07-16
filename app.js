@@ -295,10 +295,16 @@ function lockSession(name) {
 
     const allTimes = Object.values(players).filter(p => p.readyAt && p.waitUntil);
 
-    if (allTimes.length === 0) {
-      alert("No player availability to set session time.");
-      return;
-    }
+  if (allTimes.length === 0) {
+    const jesterConflictMessages = [
+      `🎨 *Nyehehe~!* I looked at your times and—oh no! No one wants to play at the same time! 💔\nTry again, okay? Maybe this time you'll align your stars or your clocks. 🕒🌟`,
+      `🖌️ *I painted a beautiful schedule... but then it exploded.* Boom! 🎆 No shared time for **'${name}'**. Try again, my sweet little muffins! 💙`,
+      `📜 *Sprinkle tried to schedule everyone but now he's crying.* 😭 There's no overlapping time for **'${name}'**. Fix it before he throws cookies at you! 🍪💥`
+    ];
+    sendDiscordNotification(jesterConflictMessages[Math.floor(Math.random() * jesterConflictMessages.length)]);
+    alert("No player availability to set session time.");
+    return;
+  }
 
     // Get the latest readyAt among all players
     const latestReadyAt = allTimes.reduce((latest, p) => {
