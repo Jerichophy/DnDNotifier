@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("no avail build");
+console.log("no avail2 build");
 
 let nickname = "";
 let userId = "";
@@ -233,7 +233,7 @@ function joinSession() {
         }
 
         // Open modal instead of prompting
-        openAvailabilityModal(name, userId, "", "", "pending");
+        //openAvailabilityModal(name, userId, "", "", "pending");
       });
     });
   });
