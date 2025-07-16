@@ -366,8 +366,10 @@ function startNewRound(name) {
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
 
   get(approvedRef).then((snapshot) => {
-    if (!snapshot.exists()) {
-      alert("No approved players found. Cannot start new round.");
+    const players = snapshot.val();
+    if (!players) {
+      alert("No approved players to reset.");
+      console.warn("[DEBUG] No approved players found for new round.");
       return;
     }
 
@@ -376,28 +378,33 @@ function startNewRound(name) {
       [`sessions/${name}/sessionStartTime`]: null
     };
 
-    snapshot.forEach(child => {
-      const playerKey = child.key;
-      if (playerKey) {
-        updates[`sessions/${name}/approvedPlayers/${playerKey}/readyAt`] = null;
-        updates[`sessions/${name}/approvedPlayers/${playerKey}/waitUntil`] = null;
+    Object.entries(players).forEach(([playerId, playerData]) => {
+      if (!playerId) {
+        console.warn(`[DEBUG] Skipping invalid player key: '${playerId}'`);
+        return;
       }
+      updates[`sessions/${name}/approvedPlayers/${playerId}/readyAt`] = null;
+      updates[`sessions/${name}/approvedPlayers/${playerId}/waitUntil`] = null;
     });
 
-    update(db, updates).then(() => {
-      sendDiscordNotification(`🔁 A new round has started for session '${name}'.`);
-      alert("New round started. Players can update their times.");
-      viewSession(name, "DM");
-    }).catch((err) => {
-      console.error("[DEBUG] Firebase update failed during startNewRound:", err);
-      alert("Failed to start a new round. Please check the console for details.");
-    });
+    console.log("[DEBUG] Submitting new round update with data:", updates);
+
+    update(ref(db), updates)
+      .then(() => {
+        sendDiscordNotification(`🔁 A new round has started for session '${name}'.`);
+        alert("New round started. Players can update their times.");
+        viewSession(name, "DM");
+      })
+      .catch((err) => {
+        console.error("[DEBUG] Firebase update failed during startNewRound:", err);
+        alert("Failed to start new round. Please try again.");
+      });
+
   }).catch((err) => {
     console.error("[DEBUG] Firebase get failed during startNewRound:", err);
-    alert("Error fetching approved players. Please check the console.");
+    alert("Error loading player list.");
   });
 }
-
 
 function deleteSession(name) {
   const { db, ref, remove, get } = window.dndApp;
