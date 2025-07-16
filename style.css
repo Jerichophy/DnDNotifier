@@ -9,7 +9,7 @@
 }
 
 body {
-  background: url('https://www.transparenttextures.com/patterns/aged-paper.png'); /* subtle parchment texture */
+  background: url('images/wooden-floor-background.jpg') no-repeat center center fixed;
   background-color: #fdf3e7;
   font-family: 'IM Fell English SC', serif;
   color: #3e1e00;
