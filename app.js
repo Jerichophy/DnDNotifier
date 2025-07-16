@@ -511,11 +511,30 @@ function viewSession(name, role) {
             <h3>⏳ Pending Players</h3>
             ${
               Object.keys(data).length
-                ? "<ul>" + Object.entries(data).map(([id, p]) =>
-                    `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
-                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
-                    </li>`).join("") + "</ul>"
+                ? "<ul>" + Object.entries(data).map(([id, p]) => {
+                    const isSelf = id === userId;
+                    const canEdit = isSelf && !session.sessionLocked;
+
+                    // 🟡 Prompt availability modal if user just joined and no time set
+                    if (
+                      window._triggeredByJoinClick &&
+                      isSelf &&
+                      (!p.readyAt || !p.waitUntil) &&
+                      !session.sessionLocked &&
+                      !window._availabilityPrompted
+                    ) {
+                      window._availabilityPrompted = true;
+                      setTimeout(() => {
+                        openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "", "pending");
+                      }, 0);
+                    }
+
+                    return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
+                      ${role === "DM" ? `
+                        <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                        <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>` : ""}
+                    </li>`;
+                  }).join("") + "</ul>"
                 : "<i>No pending players.</i>"
             }
           </div>
@@ -523,6 +542,7 @@ function viewSession(name, role) {
         container.innerHTML += html;
       });
     }
+    window._triggeredByJoinClick = false;
   });
 }
 
@@ -646,6 +666,7 @@ function fromHTMLDatetime(htmlDateStr) {
 
 function backToDashboard() {
   window._triggeredByJoinClick = false;
+  window._availabilityPrompted = false;
   document.getElementById("session-view").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
   loadUserSessions();
