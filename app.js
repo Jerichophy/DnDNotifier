@@ -207,6 +207,20 @@ function getJesterLockMessage(sessionName, time, dmId, playerIds) {
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
+function getJesterDeleteMessage(sessionName, dmId, playerIds = []) {
+  const dmMention = `<@${dmId}>`;
+  const playerMentions = playerIds.length ? playerIds.map(id => `<@${id}>`).join(", ") : "everyone";
+
+  const messages = [
+    `Oh nooo~! The session **'${sessionName}'** has been *poofed* into sparkly dust! ${dmMention}, was it on purpose? Just kidding... maybe.`,
+    `Session **'${sessionName}'**? GONE! ${dmMention} waved their magical hands and now it’s all ✨ memories. Sorry ${playerMentions}, no more cookies today.`,
+    `*In a dramatic whisper* The adventure of '${sessionName}'... has come to a close. ${dmMention}, you better not be deleting Sprinkle next. 😤`,
+    `🎭 *Exit, stage left!* The curtains close on **'${sessionName}'**. ${dmMention}, the world shall remember... or maybe not. Bye ${playerMentions}~!`
+  ];
+
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
 function startNewRound(name) {
   const { db, ref, get, update } = window.dndApp;
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
@@ -228,13 +242,23 @@ function startNewRound(name) {
 }
 
 function deleteSession(name) {
-  const { db, ref, remove } = window.dndApp;
+  const { db, ref, remove, get } = window.dndApp;
+
   if (confirm(`Are you sure you want to delete session '${name}'?`)) {
-    remove(ref(db, `sessions/${name}`)).then(() => {
-      sendDiscordNotification(`🗑️ Session '${name}' has been deleted.`);
-      alert("Session deleted.");
-      backToDashboard();
-      loadUserSessions();
+    const sessionRef = ref(db, `sessions/${name}`);
+
+    get(sessionRef).then((snapshot) => {
+      const session = snapshot.val();
+      const dmId = session.dm?.id || "";
+      const playerIds = Object.keys(session.approvedPlayers || {});
+
+      remove(sessionRef).then(() => {
+        const message = getJesterDeleteMessage(name, dmId, playerIds);
+        sendDiscordNotification(message);
+        alert("Session deleted.");
+        backToDashboard();
+        loadUserSessions();
+      });
     });
   }
 }
