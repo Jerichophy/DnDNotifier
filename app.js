@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("no avail build");
+console.log("[DEBUG] NEW app.js loaded: If you see this, it's the latest build");
 
 let nickname = "";
 let userId = "";
@@ -590,8 +590,17 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
 }
 
 function closeAvailabilityModal() {
+  console.log("[DEBUG] Modal closed");
   document.getElementById("availability-modal").classList.add("hidden");
 }
+
+const modal = document.getElementById("availability-modal");
+const observer = new MutationObserver(() => {
+  if (!modal.classList.contains("hidden")) {
+    console.trace("[TRACE] Modal became visible");
+  }
+});
+observer.observe(modal, { attributes: true, attributeFilter: ["class"] });
 
 function savePendingAvailability(sessionName, playerId) {
   const readyHTML = document.getElementById("readyAt").value;
