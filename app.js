@@ -1,5 +1,6 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
 console.log("Using latest app1.2.js build");
+
 let nickname = "";
 let userId = "";
 
@@ -25,10 +26,17 @@ function loginWithDiscord() {
 }
 
 async function getUserInfoFromDiscord(token) {
-  const response = await fetch("https://discord.com/api/users/@me", {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return await response.json();
+  try {
+    const response = await fetch("https://discord.com/api/users/@me", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error("Failed to fetch user info");
+    return await response.json();
+  } catch (error) {
+    console.error("Discord user fetch failed:", error);
+    alert("Failed to log in with Discord. Please try again.");
+    return {};
+  }
 }
 
 async function handleDiscordLogin() {
@@ -40,11 +48,16 @@ async function handleDiscordLogin() {
   if (!token) return;
 
   const user = await getUserInfoFromDiscord(token);
+  if (!user?.id) return;
+
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
 
   document.getElementById("user-name").textContent = nickname;
-  document.getElementById("avatar").src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+  document.getElementById("avatar").src = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
@@ -52,8 +65,18 @@ async function handleDiscordLogin() {
 }
 
 function createSession() {
-  const name = prompt("Name your session (e.g. 'curse-of-strahd')")?.toLowerCase().replace(/\s+/g, "-");
-  if (!name) return;
+  const rawName = prompt("Name your session (e.g. 'curse-of-strahd')");
+  if (!rawName) return;
+
+  const name = rawName.toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!name) {
+    alert("Invalid session name.");
+    return;
+  }
 
   const { db, ref, set, get } = window.dndApp;
   const sessionRef = ref(db, `sessions/${name}`);
@@ -66,22 +89,16 @@ function createSession() {
         dm: { username: nickname, id: userId },
         sessionLocked: false
       }).then(() => {
-        const message = getJesterCreateMessage(name, userId);
-        sendDiscordNotification(message);
+        sendDiscordNotification(getJesterCreateMessage(name, userId));
         alert(`Session '${name}' created.`);
 
-        // 👉 Generate and show the invite link
         const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
         const sessionList = document.getElementById("session-list");
         const inviteDiv = document.createElement("div");
         inviteDiv.innerHTML = `
           <p><strong>Invite Link:</strong></p>
-          <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Link copied!'))">
-            📋 Copy Invite Link
-          </button>
-          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
-            🔗 Open Invite Link
-          </a>
+          <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Link copied!'))">📋 Copy Invite Link</button>
+          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">🔗 Open Invite Link</a>
         `;
         sessionList.prepend(inviteDiv);
 
@@ -90,7 +107,6 @@ function createSession() {
     }
   });
 }
-
 
 function joinSession() {
   const name = document.getElementById("session-id-input").value.trim().toLowerCase();
@@ -135,17 +151,17 @@ function joinSession() {
         const waitUntil = prompt("How long will you wait? (HH:MM)");
         if (!readyAt || !waitUntil) return;
 
-      const jesterWarning = `🎭 Ahem! By joining this noble quest, you swear upon the sacred dice 🐉:\n\n"Those who join **must** honor the session time. Tardiness shall be punished with a **100 gold penalty**, to be split among those valiant adventurers already present in the call!"\n\nNo excuses! Not even a dragon attack. 🐲`;
+        const jesterWarning = `🎭 Ahem! By joining this noble quest, you swear upon the sacred dice 🐉:\n\n"Those who join **must** honor the session time. Tardiness shall be punished with a **100 gold penalty**, to be split among those valiant adventurers already present in the call!"\n\nNo excuses! Not even a dragon attack. 🐲`;
 
-      set(pendingRef, {
-        name: nickname,
-        readyAt,
-        waitUntil
-      }).then(() => {
-        sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-        alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
-        loadUserSessions();
-      });
+        set(pendingRef, {
+          name: nickname,
+          readyAt,
+          waitUntil
+        }).then(() => {
+          sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+          alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
+          loadUserSessions();
+        });
       });
     });
   });
@@ -389,35 +405,6 @@ function viewSession(name, role) {
   });
 }
 
-
-  const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
-  const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
-
-  onValue(approvedRef, (snapshot) => {
-    const data = snapshot.val() || {};
-    let html = "<h3>Approved Players</h3>";
-    html += Object.keys(data).length
-      ? "<ul>" + Object.entries(data).map(([_, p]) =>
-          `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'}</li>`).join("") + "</ul>"
-      : "<i>No approved players yet.</i>";
-    container.innerHTML += html;
-  });
-
-  if (role === "DM") {
-    onValue(pendingRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      let html = "<h3>Pending Players</h3>";
-      html += Object.keys(data).length
-        ? "<ul>" + Object.entries(data).map(([id, p]) =>
-            `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
-              <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-              <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button></li>`).join("") + "</ul>"
-        : "<i>No pending players.</i>";
-      container.innerHTML += html;
-    });
-  }
-}
-
 function loadUserSessions() {
   const { db, ref, get } = window.dndApp;
   const sessionList = document.getElementById("session-list");
@@ -458,7 +445,16 @@ function backToDashboard() {
   loadUserSessions();
 }
 
-window.onload = handleDiscordLogin;
+window.onload = () => {
+  handleDiscordLogin();
+
+  // Auto-fill join if "?join=session-name" is present
+  const params = new URLSearchParams(window.location.search);
+  const joinName = params.get("join");
+  if (joinName) {
+    document.getElementById("session-id-input").value = joinName;
+  }
+};
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
 window.joinSession = joinSession;
