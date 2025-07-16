@@ -764,10 +764,11 @@ window.onload = async () => {
 
   // 👇 Do NOT auto-join anymore — user must click "Join"
   if (joinName) {
-    console.log(`[DEBUG] Join param '${joinName}' detected. You can join manually now.`);
-    alert(`Found a join link for session '${joinName}' — click "Join Session" to continue.`);
+    console.log(`[DEBUG] Join param '${joinName}' detected. Auto-joining now.`);
+    window._triggeredByJoinClick = true;
+    joinSession(joinName); // 👈 auto-join
+    localStorage.removeItem("pendingJoin"); // ✅ clean up
   }
-
   console.log("[DEBUG] Loading sessions for current user...");
   loadUserSessions();
 
