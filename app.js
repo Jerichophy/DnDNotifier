@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug pt 2 build");
+console.log("debug newround build");
 
 let nickname = "";
 let userId = "";
@@ -364,22 +364,40 @@ function getJesterDeleteMessage(sessionName, dmId, playerIds = []) {
 function startNewRound(name) {
   const { db, ref, get, update } = window.dndApp;
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
+
   get(approvedRef).then((snapshot) => {
+    if (!snapshot.exists()) {
+      alert("No approved players found. Cannot start new round.");
+      return;
+    }
+
     const updates = {
       [`sessions/${name}/sessionLocked`]: false,
       [`sessions/${name}/sessionStartTime`]: null
     };
+
     snapshot.forEach(child => {
-      updates[`sessions/${name}/approvedPlayers/${child.key}/readyAt`] = null;
-      updates[`sessions/${name}/approvedPlayers/${child.key}/waitUntil`] = null;
+      const playerKey = child.key;
+      if (playerKey) {
+        updates[`sessions/${name}/approvedPlayers/${playerKey}/readyAt`] = null;
+        updates[`sessions/${name}/approvedPlayers/${playerKey}/waitUntil`] = null;
+      }
     });
+
     update(db, updates).then(() => {
       sendDiscordNotification(`🔁 A new round has started for session '${name}'.`);
       alert("New round started. Players can update their times.");
       viewSession(name, "DM");
+    }).catch((err) => {
+      console.error("[DEBUG] Firebase update failed during startNewRound:", err);
+      alert("Failed to start a new round. Please check the console for details.");
     });
+  }).catch((err) => {
+    console.error("[DEBUG] Firebase get failed during startNewRound:", err);
+    alert("Error fetching approved players. Please check the console.");
   });
 }
+
 
 function deleteSession(name) {
   const { db, ref, remove, get } = window.dndApp;
