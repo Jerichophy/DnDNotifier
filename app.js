@@ -677,56 +677,55 @@ window.onload = async () => {
     loadUserSessions();
   });
 
-  console.log("[DEBUG] Page loaded. Checking URL and localStorage for join info...");
+  console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
+
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join");
 
   if (joinName) {
-    console.log(`[DEBUG] Found join param in URL: ${joinName}`);
-    localStorage.setItem("pendingJoin", joinName);
-  }
-
-  if (!joinName) {
-    joinName = localStorage.getItem("pendingJoin");
-    if (joinName) console.log(`[DEBUG] Restored join param from localStorage: ${joinName}`);
+    console.log(`[DEBUG] Found ?join=${joinName} in URL`);
+    localStorage.setItem("pendingJoin", joinName); // Store for after login
+  } else {
+    console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
 
-  let userInfo = await handleDiscordLogin();
-
+  // Attempt login (OAuth token in URL hash)
+  const userInfo = await handleDiscordLogin();
   if (!userInfo) {
     if (joinName) {
-      localStorage.setItem("pendingJoin", joinName);
+      localStorage.setItem("pendingJoin", joinName); // Retry after auth
     }
     loginWithDiscord();
     return;
   }
 
-  console.log(`[DEBUG] User info loaded:`, userInfo);
+  // Set global user info
   userId = userInfo.userId;
   nickname = userInfo.nickname;
 
+  // Show user info
   document.getElementById("user-name").textContent = nickname;
   document.getElementById("avatar").src = userInfo.avatar
     ? `https://cdn.discordapp.com/avatars/${userId}/${userInfo.avatar}.png`
     : `https://cdn.discordapp.com/embed/avatars/${parseInt(userInfo.discriminator) % 5}.png`;
 
+  // Show dashboard
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
-  if (joinName && userInfo && userInfo.userId) {
-    console.log(`[DEBUG] Attempting auto-join with session '${joinName}' for user '${userId}'`);
-    await autoJoinAndViewSession(joinName.toLowerCase());
-    return;
+  // 👇 Do NOT auto-join anymore — user must click "Join"
+  if (joinName) {
+    console.log(`[DEBUG] Join param '${joinName}' detected. You can join manually now.`);
+    alert(`Found a join link for session '${joinName}' — click "Join Session" to continue.`);
   }
 
-  console.log("[DEBUG] Loading user sessions...");
+  console.log("[DEBUG] Loading sessions for current user...");
   loadUserSessions();
 
-  console.log("[DEBUG] Cleaning URL to remove tokens/join params");
+  console.log("[DEBUG] Cleaning URL hash");
   window.history.replaceState({}, document.title, window.location.pathname);
 };
-
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
