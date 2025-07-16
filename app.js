@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest na build");
+console.log("Using latest2 na build");
 
 let nickname = "";
 let userId = "";
@@ -512,8 +512,13 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
+  // 👇 EARLY: always store ?join if it's there
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join");
+  if (joinName) {
+    localStorage.setItem("pendingJoin", joinName);
+    console.log("[DEBUG] Early join param saved to localStorage:", joinName);
+  }
 
   // Restore join param from localStorage (if redirected from Discord)
   if (!joinName) {
@@ -528,7 +533,6 @@ window.onload = async () => {
     userId = userInfo.userId;
     nickname = userInfo.nickname;
 
-    // Show user info
     document.getElementById("user-name").textContent = nickname;
     document.getElementById("avatar").src = userInfo.avatar
       ? `https://cdn.discordapp.com/avatars/${userId}/${userInfo.avatar}.png`
@@ -541,17 +545,15 @@ window.onload = async () => {
   if (joinName && userId) {
     console.log("[DEBUG] Auto-joining session:", joinName);
     await autoJoinAndViewSession(joinName.toLowerCase());
-    return; // ⛔ STOP here, do NOT fall through to dashboard
+    return;
   }
 
   if (userInfo) {
     loadUserSessions();
   }
 
-  // Clean URL
   window.history.replaceState({}, document.title, window.location.pathname);
 };
-
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
