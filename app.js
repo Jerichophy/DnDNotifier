@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug last4 build");
+console.log("debug last6 build");
 
 let nickname = "";
 let userId = "";
@@ -72,6 +72,7 @@ async function autoJoinAndViewSession(sessionName) {
 
   if (session.dm?.id === userId) {
     console.log("[DEBUG] You are the DM. Viewing session directly.");
+    window._triggeredByJoinClick = true;
     viewSession(sessionName, "DM");
     return;
   }
@@ -407,6 +408,7 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
+  window._triggeredByJoinClick = window._triggeredByJoinClick || false; // ← ADD THIS LINE
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -473,7 +475,9 @@ function viewSession(name, role) {
 
                   // 👉 Prompt availability only once per session view
                   if (
+                    window._triggeredByJoinClick &&
                     isSelf &&
+                    role === "Player" && // ← Must be approved
                     (!p.readyAt || !p.waitUntil) &&
                     !session.sessionLocked &&
                     !window._availabilityPrompted
@@ -621,6 +625,7 @@ function toHTMLDatetime(str) {
 
 // Converts HTML datetime-local back to MM-DD HH:MM
 function fromHTMLDatetime(htmlDateStr) {
+  if (!htmlDateStr || isNaN(Date.parse(htmlDateStr))) return null; // 👈 Added null check and validation
   const d = new Date(htmlDateStr);
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -654,7 +659,8 @@ window.onload = async () => {
     const snap = await get(playerRef);
 
     if (!snap.exists()) {
-      return alert("Player not found.");
+      alert("Player not found. You must be part of the session first.");
+      return;
     }
 
     const player = snap.val();
@@ -727,6 +733,8 @@ window.onload = async () => {
   window.history.replaceState({}, document.title, window.location.pathname);
 };
 
+window.closeAvailabilityModal = closeAvailabilityModal;
+window.openAvailabilityModal = openAvailabilityModal;
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
 window.joinSession = joinSession;
