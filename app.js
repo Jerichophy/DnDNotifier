@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug newround4 build");
+console.log("debug player build");
 
 let nickname = "";
 let userId = "";
@@ -663,7 +663,6 @@ window.onload = async () => {
   window.history.replaceState({}, document.title, window.location.pathname);
 };
 
-
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
 window.joinSession = joinSession;
@@ -675,3 +674,4 @@ window.lockSession = lockSession;
 window.unlockSession = unlockSession;
 window.startNewRound = startNewRound;
 window.deleteSession = deleteSession;
+window.editAvailability = editAvailability;
