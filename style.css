@@ -12,7 +12,7 @@ body {
   background: url('Images/wooden-floor-background.jpg') no-repeat center center fixed;
   background-color: #fdf3e7;
   font-family: 'IM Fell English SC', serif;
-  color: #3e1e00;
+  color: #2e1400;
   text-align: center;
   padding: 40px 20px;
   min-height: 100vh;
@@ -75,6 +75,11 @@ button:hover {
   transform: scale(1.05);
 }
 
+button:focus, input:focus {
+  outline: 2px solid #c29556;
+  box-shadow: 0 0 5px #c29556;
+}
+
 button:active {
   transform: scale(0.97);
 }
@@ -94,13 +99,14 @@ input[type="text"] {
 
 /* Session Cards */
 #session-list div {
-  background: rgba(255, 248, 225, 0.85);
-  margin: 10px auto;
-  padding: 12px;
-  border: 1px solid #a87b3f;
-  border-radius: 10px;
-  box-shadow: 0 0 8px rgba(92, 46, 0, 0.2);
-  transition: background 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+#session-list button {
+  margin: 5px;
 }
 
 #session-list div:hover {
