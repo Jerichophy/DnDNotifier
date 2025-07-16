@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest app1.0.js build");
+console.log("Using latest app1.1.js build");
 let nickname = "";
 let userId = "";
 
