@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest app1.1.js build");
+console.log("Using latest app1.2.js build");
 let nickname = "";
 let userId = "";
 
@@ -135,15 +135,17 @@ function joinSession() {
         const waitUntil = prompt("How long will you wait? (HH:MM)");
         if (!readyAt || !waitUntil) return;
 
-        set(pendingRef, {
-          name: nickname,
-          readyAt,
-          waitUntil
-        }).then(() => {
-          sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-          alert("Join request sent. Waiting for DM approval.");
-          loadUserSessions();
-        });
+      const jesterWarning = `🎭 Ahem! By joining this noble quest, you swear upon the sacred dice 🐉:\n\n"Those who join **must** honor the session time. Tardiness shall be punished with a **100 gold penalty**, to be split among those valiant adventurers already present in the call!"\n\nNo excuses! Not even a dragon attack. 🐲`;
+
+      set(pendingRef, {
+        name: nickname,
+        readyAt,
+        waitUntil
+      }).then(() => {
+        sendDiscordNotification(`🎲 ${nickname} requested to join '${name}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+        alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
+        loadUserSessions();
+      });
       });
     });
   });
