@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug newround2 build");
+console.log("debug newround3 build");
 
 let nickname = "";
 let userId = "";
@@ -84,6 +84,27 @@ async function autoJoinAndViewSession(sessionName) {
 
   if ((await get(approvedRef)).exists()) {
     console.log("[DEBUG] User already approved. Viewing session.");
+
+    const approvedSnap = await get(approvedRef);
+    const player = approvedSnap.val();
+
+    if (!player.readyAt || !player.waitUntil) {
+      const readyAt = prompt("New round! What time are you ready? (HH:MM)");
+      const waitUntil = prompt("How long will you wait? (HH:MM)");
+      if (!readyAt || !waitUntil) {
+        console.warn("[DEBUG] User skipped re-entering readiness.");
+        return;
+      }
+
+      await set(approvedRef, {
+        ...player,
+        readyAt,
+        waitUntil
+      });
+
+      sendDiscordNotification(`🔁 ${nickname} updated their availability — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+      alert("Your time has been updated for the new round!");
+    }
     viewSession(sessionName, "Player");
     return;
   }
