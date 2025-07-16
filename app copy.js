@@ -139,6 +139,12 @@ async function handleDiscordLogin() {
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
 
+  window.userName = nickname;
+  window.userAvatar = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+
+
   return {
     userId,
     nickname,
@@ -193,8 +199,8 @@ function createSession() {
   });
 }
 
-function joinSession() {
-  const name = document.getElementById("session-id-input").value.trim().toLowerCase();
+function joinSession(sessionNameFromLink) {
+  const name = sessionNameFromLink || document.getElementById("session-id-input").value.trim().toLowerCase();
   if (!name) return;
 
   const { db, ref, set, get } = window.dndApp;
@@ -216,7 +222,7 @@ function joinSession() {
 
     get(approvedRef).then((approvedSnap) => {
       if (approvedSnap.exists()) {
-        alert("You are already part of this session.");
+        viewSession(name, session.dm === userId ? "DM" : "Player");
         return;
       }
 
@@ -232,12 +238,23 @@ function joinSession() {
           return;
         }
 
-        // Open modal instead of prompting
-        //openAvailabilityModal(name, userId, "", "", "pending");
+        // ✅ Auto-join if from invite link
+        if (window._triggeredByJoinClick) {
+          set(pendingRef, {
+            name: window.userName,
+            avatar: window.userAvatar,
+          }).then(() => {
+            viewSession(name, "Player");
+          });
+        } else {
+          // ✅ Manual join: show modal
+          openAvailabilityModal(name, userId, "", "", "pending");
+        }
       });
     });
   });
 }
+
 
 
 function approvePlayer(name, id) {
@@ -410,7 +427,7 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
-  window._triggeredByJoinClick = window._triggeredByJoinClick || false; // ← ADD THIS LINE
+  window._triggeredByJoinClick = window._triggeredByJoinClick || false; 
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -476,19 +493,19 @@ function viewSession(name, role) {
                   const canEdit = isSelf && !session.sessionLocked;
 
                   // 👉 Prompt availability only once per session view
-                  //if (
-                    //window._triggeredByJoinClick &&
-                    //isSelf &&
-                    //role === "Player" && // ← Must be approved
-                    //(!p.readyAt || !p.waitUntil) &&
-                    //!session.sessionLocked &&
-                    //!window._availabilityPrompted
-                  //) {
-                  //  window._availabilityPrompted = true;
-                  //  setTimeout(() => {
-                  //    openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
-                  //  }, 0);
-                  //}
+                  if (
+                    window._triggeredByJoinClick &&
+                    isSelf &&
+                    role === "Player" && // ← Must be approved
+                    (!p.readyAt || !p.waitUntil) &&
+                    !session.sessionLocked &&
+                    !window._availabilityPrompted
+                  ) {
+                    window._availabilityPrompted = true;
+                    setTimeout(() => {
+                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
+                    }, 0);
+                  }
 
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
@@ -511,11 +528,30 @@ function viewSession(name, role) {
             <h3>⏳ Pending Players</h3>
             ${
               Object.keys(data).length
-                ? "<ul>" + Object.entries(data).map(([id, p]) =>
-                    `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
-                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
-                    </li>`).join("") + "</ul>"
+                ? "<ul>" + Object.entries(data).map(([id, p]) => {
+                    const isSelf = id === userId;
+                    const canEdit = isSelf && !session.sessionLocked;
+
+                    // 🟡 Prompt availability modal if user just joined and no time set
+                    if (
+                      window._triggeredByJoinClick &&
+                      isSelf &&
+                      (!p.readyAt || !p.waitUntil) &&
+                      !session.sessionLocked &&
+                      !window._availabilityPrompted
+                    ) {
+                      window._availabilityPrompted = true;
+                      setTimeout(() => {
+                        openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "", "pending");
+                      }, 0);
+                    }
+
+                    return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
+                      ${role === "DM" ? `
+                        <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                        <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>` : ""}
+                    </li>`;
+                  }).join("") + "</ul>"
                 : "<i>No pending players.</i>"
             }
           </div>
@@ -523,7 +559,9 @@ function viewSession(name, role) {
         container.innerHTML += html;
       });
     }
+    window._triggeredByJoinClick = false;
   });
+  window._triggeredByJoinClick = false;
 }
 
 function editAvailability(sessionName, playerId) {
@@ -572,21 +610,17 @@ function loadUserSessions() {
 }
 
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
-    console.trace("[DEBUG] openAvailabilityModal called with args:", {
-      sessionName, playerId, currentReadyAt, currentWaitUntil, role
-    });
-  return;
-// document.getElementById("availability-modal").classList.remove("hidden");
-//
-//  const readyInput = document.getElementById("readyAt");
-//  const waitInput = document.getElementById("waitUntil");
-//
- // if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
-//  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
-//
-//  document.getElementById("modal-session-name").value = sessionName;
-//  document.getElementById("modal-player-id").value = playerId;
-//  document.getElementById("modal-role").value = role;
+  document.getElementById("availability-modal").classList.remove("hidden");
+
+  const readyInput = document.getElementById("readyAt");
+  const waitInput = document.getElementById("waitUntil");
+
+  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
+  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+
+  document.getElementById("modal-session-name").value = sessionName;
+  document.getElementById("modal-player-id").value = playerId;
+  document.getElementById("modal-context").value = role;
 }
 
 function closeAvailabilityModal() {
@@ -629,7 +663,6 @@ function savePendingAvailability(sessionName, playerId) {
   });
 }
 
-
 // Converts string "08-12 18:30" to "2025-08-12T18:30"
 function toHTMLDatetime(str) {
   if (!str) return "";
@@ -651,6 +684,7 @@ function fromHTMLDatetime(htmlDateStr) {
 
 function backToDashboard() {
   window._triggeredByJoinClick = false;
+  window._availabilityPrompted = false;
   document.getElementById("session-view").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
   loadUserSessions();
@@ -670,19 +704,10 @@ window.onload = async () => {
     const waitUntil = fromHTMLDatetime(waitHTML);
 
     const { db, ref, set, get } = window.dndApp;
-
     const playerRef = ref(db, `sessions/${sessionName}/${context === "pending" ? "pendingPlayers" : "approvedPlayers"}/${playerId}`);
-    const snap = await get(playerRef);
 
-    if (!snap.exists()) {
-      alert("Player not found. You must be part of the session first.");
-      return;
-    }
-
-    const player = snap.val();
-
+    // ✅ We don't check if they already exist — just set it directly.
     await set(playerRef, {
-      ...player,
       name: nickname,
       readyAt,
       waitUntil
@@ -690,8 +715,8 @@ window.onload = async () => {
 
     const message =
       context === "pending"
-        ? `🎲 ${player.name} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
-        : `✏️ ${player.name} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
+        ? `🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
+        : `✏️ ${nickname} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
 
     sendDiscordNotification(message);
     alert(context === "pending" ? "Join request sent. Waiting for DM approval." : "Availability updated!");
@@ -699,18 +724,19 @@ window.onload = async () => {
     loadUserSessions();
   });
 
+
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
 
   const params = new URLSearchParams(window.location.search);
-  let joinName = params.get("join");
-
+  let joinName = params.get("join") || localStorage.getItem("pendingJoin");
   if (joinName) {
     console.log(`[DEBUG] Found ?join=${joinName} in URL`);
-    localStorage.setItem("pendingJoin", joinName); // Store for after login
+    localStorage.setItem("pendingJoin", joinName);
   } else {
     console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
+
 
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
@@ -738,16 +764,33 @@ window.onload = async () => {
 
   // 👇 Do NOT auto-join anymore — user must click "Join"
   if (joinName) {
-    console.log(`[DEBUG] Join param '${joinName}' detected. You can join manually now.`);
-    alert(`Found a join link for session '${joinName}' — click "Join Session" to continue.`);
+    console.log(`[DEBUG] Join param '${joinName}' detected. Auto-joining now.`);
+    window._triggeredByJoinClick = true;
+    joinSession(joinName); // 👈 auto-join
+    localStorage.removeItem("pendingJoin"); // ✅ clean up
   }
-
   console.log("[DEBUG] Loading sessions for current user...");
   loadUserSessions();
 
   console.log("[DEBUG] Cleaning URL hash");
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionToJoin = params.get("join");
+
+  if (sessionToJoin) {
+    window._triggeredByJoinClick = true;
+
+    const interval = setInterval(() => {
+      if (window.userId && window.userName) {
+        clearInterval(interval);
+        joinSession(sessionToJoin); // ⬅️ Auto join via invite link
+      }
+    }, 500);
+  }
+});
 
 window.closeAvailabilityModal = closeAvailabilityModal;
 window.openAvailabilityModal = openAvailabilityModal;

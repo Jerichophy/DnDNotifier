@@ -427,7 +427,7 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
-  window._triggeredByJoinClick = window._triggeredByJoinClick || false; 
+  window._triggeredByJoinClick = window._triggeredByJoinClick || false;
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -492,11 +492,10 @@ function viewSession(name, role) {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
 
-                  // 👉 Prompt availability only once per session view
                   if (
                     window._triggeredByJoinClick &&
                     isSelf &&
-                    role === "Player" && // ← Must be approved
+                    role === "Player" &&
                     (!p.readyAt || !p.waitUntil) &&
                     !session.sessionLocked &&
                     !window._availabilityPrompted
@@ -518,38 +517,36 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
+    // Pending players (show for DM and prompt modal for everyone if needed)
+    onValue(pendingRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      let html = "";
 
-    // Pending players (DM only)
-    if (role === "DM") {
-      onValue(pendingRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        let html = `
+      // 🟡 Prompt availability modal if user just joined and is pending
+      if (
+        window._triggeredByJoinClick &&
+        data?.[userId] &&
+        (!data[userId].readyAt || !data[userId].waitUntil) &&
+        !session.sessionLocked &&
+        !window._availabilityPrompted
+      ) {
+        window._availabilityPrompted = true;
+        setTimeout(() => {
+          openAvailabilityModal(name, userId, data[userId].readyAt || "", data[userId].waitUntil || "", "pending");
+        }, 0);
+      }
+
+      // 👁️ Only DMs see the full pending player list
+      if (role === "DM") {
+        html += `
           <div style="margin-top: 20px;">
             <h3>⏳ Pending Players</h3>
             ${
               Object.keys(data).length
                 ? "<ul>" + Object.entries(data).map(([id, p]) => {
-                    const isSelf = id === userId;
-                    const canEdit = isSelf && !session.sessionLocked;
-
-                    // 🟡 Prompt availability modal if user just joined and no time set
-                    if (
-                      window._triggeredByJoinClick &&
-                      isSelf &&
-                      (!p.readyAt || !p.waitUntil) &&
-                      !session.sessionLocked &&
-                      !window._availabilityPrompted
-                    ) {
-                      window._availabilityPrompted = true;
-                      setTimeout(() => {
-                        openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "", "pending");
-                      }, 0);
-                    }
-
                     return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
-                      ${role === "DM" ? `
-                        <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                        <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>` : ""}
+                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
                     </li>`;
                   }).join("") + "</ul>"
                 : "<i>No pending players.</i>"
@@ -557,12 +554,15 @@ function viewSession(name, role) {
           </div>
         `;
         container.innerHTML += html;
-      });
-    }
-    window._triggeredByJoinClick = false;
+      }
+
+      window._triggeredByJoinClick = false;
+    });
   });
+
   window._triggeredByJoinClick = false;
 }
+
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
