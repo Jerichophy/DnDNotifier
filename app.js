@@ -484,6 +484,7 @@ function viewSession(name, role) {
 
     // 🔁 Availability check
     console.log("[AVAILABILITY CHECK] Starting check...");
+    console.debug("[AVAILABILITY CHECK] Awaiting Firebase get calls...");
 
     Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
       const pendingData = pendingSnap.val() || {};
@@ -506,21 +507,22 @@ function viewSession(name, role) {
         !session.sessionLocked &&
         !window._availabilityPrompted;
 
-      // ✅ Logging decision for debugging
       console.debug("[AVAILABILITY CHECK LOGIC]", {
+        pendingData,
+        approvedData,
         _triggeredByJoinClick: window._triggeredByJoinClick,
         _joinedViaInvite: window._joinedViaInvite,
-        role,
         isSelfPending,
         isSelfApproved,
         readyAt,
         waitUntil,
         sessionLocked: session.sessionLocked,
-        _availabilityPrompted: window._availabilityPrompted,
-        shouldPrompt
+        shouldPrompt,
+        _availabilityPrompted: window._availabilityPrompted
       });
 
       if (shouldPrompt) {
+        window._availabilityPrompted = true;
         setTimeout(() => {
           openAvailabilityModal(name, userId, readyAt || "", waitUntil || "", isSelfPending ? "pending" : "approved");
 
@@ -531,12 +533,10 @@ function viewSession(name, role) {
             </p>
           `;
           document.querySelector(".modal")?.appendChild(notice);
-
-          window._availabilityPrompted = true; // ✅ Move here so it's only set if modal was actually shown
         }, 0);
       }
     }).catch((err) => {
-      console.error("🔥 Error during availability check:", err);
+      console.error("[AVAILABILITY CHECK ERROR] Firebase calls failed:", err);
     });
 
     // ✅ Approved players list
@@ -595,10 +595,11 @@ function viewSession(name, role) {
     console.error("🔥 Failed to load session data:", err);
   });
 
-  // Final fallback reset
+  // Final fallback
   window._triggeredByJoinClick = false;
   window._joinedViaInvite = false;
 }
+
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
