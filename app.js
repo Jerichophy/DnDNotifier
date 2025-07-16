@@ -659,25 +659,16 @@ window.onload = async () => {
     const playerId = document.getElementById("modal-player-id").value;
     const readyHTML = document.getElementById("readyAt").value;
     const waitHTML = document.getElementById("waitUntil").value;
-    const context = document.getElementById("modal-context").value || "approved";
+    const context = document.getElementById("modal-role").value || "approved";
 
     const readyAt = fromHTMLDatetime(readyHTML);
     const waitUntil = fromHTMLDatetime(waitHTML);
 
     const { db, ref, set, get } = window.dndApp;
-
     const playerRef = ref(db, `sessions/${sessionName}/${context === "pending" ? "pendingPlayers" : "approvedPlayers"}/${playerId}`);
-    const snap = await get(playerRef);
 
-    if (!snap.exists()) {
-      alert("Player not found. You must be part of the session first.");
-      return;
-    }
-
-    const player = snap.val();
-
+    // ✅ We don't check if they already exist — just set it directly.
     await set(playerRef, {
-      ...player,
       name: nickname,
       readyAt,
       waitUntil
@@ -685,14 +676,15 @@ window.onload = async () => {
 
     const message =
       context === "pending"
-        ? `🎲 ${player.name} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
-        : `✏️ ${player.name} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
+        ? `🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
+        : `✏️ ${nickname} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
 
     sendDiscordNotification(message);
     alert(context === "pending" ? "Join request sent. Waiting for DM approval." : "Availability updated!");
     closeAvailabilityModal();
     loadUserSessions();
   });
+
 
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
 
