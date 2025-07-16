@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug player build");
+console.log("debug player2 build");
 
 let nickname = "";
 let userId = "";
@@ -512,8 +512,9 @@ function viewSession(name, role) {
             Object.keys(data).length
               ? "<ul>" + Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
+                  const canEdit = isSelf && !session.sessionLocked;
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
-                    ${isSelf ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                    ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
                 }).join("") + "</ul>"
               : "<i>No approved players yet.</i>"
