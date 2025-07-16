@@ -233,7 +233,7 @@ function joinSession() {
         }
 
         // Open modal instead of prompting
-        //openAvailabilityModal(name, userId, "", "", "pending");
+        openAvailabilityModal(name, userId, "", "", "pending");
       });
     });
   });
