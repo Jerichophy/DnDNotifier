@@ -452,7 +452,7 @@ function viewSession(name, role) {
     const session = snapshot.val();
     let content = "";
 
-    if (session.sessionStartTime) {
+    if (session?.sessionStartTime) {
       content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
 
@@ -481,6 +481,9 @@ function viewSession(name, role) {
     }
 
     container.innerHTML = content;
+
+    // 🔁 Availability check
+    console.log("[AVAILABILITY CHECK] Starting check...");
 
     Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
       const pendingData = pendingSnap.val() || {};
@@ -511,10 +514,8 @@ function viewSession(name, role) {
         readyAt,
         waitUntil,
         sessionLocked: session.sessionLocked,
-        _availabilityPrompted: window._availabilityPrompted,
         shouldPrompt,
-        pendingPlayer,
-        approvedPlayer
+        _availabilityPrompted: window._availabilityPrompted
       });
 
       if (shouldPrompt) {
@@ -531,8 +532,11 @@ function viewSession(name, role) {
           document.querySelector(".modal")?.appendChild(notice);
         }, 0);
       }
+    }).catch((err) => {
+      console.error("🔥 Error during availability check:", err);
     });
 
+    // ✅ Approved players list
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
       let html = `
@@ -556,6 +560,7 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
+    // ⏳ Pending players list
     onValue(pendingRef, (snapshot) => {
       const data = snapshot.val() || {};
       if (role === "DM") {
@@ -579,11 +584,15 @@ function viewSession(name, role) {
         container.innerHTML += html;
       }
 
+      // ✅ Always reset join flags after loading
       window._triggeredByJoinClick = false;
       window._joinedViaInvite = false;
     });
+  }).catch((err) => {
+    console.error("🔥 Failed to load session data:", err);
   });
 
+  // Final fallback
   window._triggeredByJoinClick = false;
   window._joinedViaInvite = false;
 }
