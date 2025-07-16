@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug2 build");
+console.log("debug3 build");
 
 let nickname = "";
 let userId = "";
@@ -84,27 +84,6 @@ async function autoJoinAndViewSession(sessionName) {
 
   if ((await get(approvedRef)).exists()) {
     console.log("[DEBUG] User already approved. Viewing session.");
-
-    const approvedSnap = await get(approvedRef);
-    const player = approvedSnap.val();
-
-    if (!player.readyAt || !player.waitUntil) {
-      const readyAt = prompt("New round! What time are you ready? (HH:MM)");
-      const waitUntil = prompt("How long will you wait? (HH:MM)");
-      if (!readyAt || !waitUntil) {
-        console.warn("[DEBUG] User skipped re-entering readiness.");
-        return;
-      }
-
-      await set(approvedRef, {
-        ...player,
-        readyAt,
-        waitUntil
-      });
-
-      sendDiscordNotification(`🔁 ${nickname} updated their availability — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-      alert("Your time has been updated for the new round!");
-    }
     viewSession(sessionName, "Player");
     return;
   }
@@ -513,6 +492,20 @@ function viewSession(name, role) {
               ? "<ul>" + Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
+
+                  // 👉 Prompt availability only once per session view
+                  if (
+                    isSelf &&
+                    (!p.readyAt || !p.waitUntil) &&
+                    !session.sessionLocked &&
+                    !window._availabilityPrompted
+                  ) {
+                    window._availabilityPrompted = true;
+                    setTimeout(() => {
+                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
+                    }, 0);
+                  }
+
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
@@ -523,6 +516,7 @@ function viewSession(name, role) {
       `;
       container.innerHTML += html;
     });
+
 
     // Pending players (DM only)
     if (role === "DM") {
