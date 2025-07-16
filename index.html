@@ -27,11 +27,13 @@
 <body>
   <h1>D&D Session Manager</h1>
 
+  <!-- LOGIN -->
   <div id="discord-login" class="section">
     <h2>Login with Discord</h2>
     <button onclick="loginWithDiscord()">Login</button>
   </div>
 
+  <!-- DASHBOARD -->
   <div id="dashboard-section" class="section hidden">
     <h2>Welcome, <span id="user-name"></span>!</h2>
     <img id="avatar" src="" width="64" height="64" style="border-radius: 50%; margin: 10px auto; display: block;" />
@@ -43,6 +45,7 @@
     <div id="session-list"></div>
   </div>
 
+  <!-- SESSION VIEW -->
   <div id="session-view" class="section hidden">
     <h2>Session: <span id="view-session-name"></span></h2>
     <div id="view-role"></div>
@@ -52,6 +55,27 @@
     <button onclick="backToDashboard()">Back</button>
   </div>
 
-<script type="module" src="app.js"></script>
+  <!-- AVAILABILITY MODAL -->
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000;">
+    <h3>Set Your Availability</h3>
+    <form id="availability-form">
+      <label for="readyAt">Ready At:</label><br>
+      <input type="datetime-local" id="readyAt" name="readyAt" required><br><br>
+
+      <label for="waitUntil">Wait Until:</label><br>
+      <input type="datetime-local" id="waitUntil" name="waitUntil" required><br><br>
+
+      <!-- Hidden context for player role and session info -->
+      <input type="hidden" id="modal-session-name" name="sessionName" />
+      <input type="hidden" id="modal-player-id" name="playerId" />
+      <input type="hidden" id="modal-context" name="context" /> <!-- ✅ Important! -->
+
+      <button type="submit">Save Availability</button>
+      <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
+    </form>
+  </div>
+
+  <!-- JS Logic -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
