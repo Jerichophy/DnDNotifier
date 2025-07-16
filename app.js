@@ -503,6 +503,20 @@ function viewSession(name, role) {
         !session.sessionLocked &&
         !window._availabilityPrompted;
 
+      console.debug("[AVAILABILITY CHECK]", {
+        _triggeredByJoinClick: window._triggeredByJoinClick,
+        _joinedViaInvite: window._joinedViaInvite,
+        isSelfPending,
+        isSelfApproved,
+        readyAt,
+        waitUntil,
+        sessionLocked: session.sessionLocked,
+        _availabilityPrompted: window._availabilityPrompted,
+        shouldPrompt,
+        pendingPlayer,
+        approvedPlayer
+      });
+
       if (shouldPrompt) {
         window._availabilityPrompted = true;
         setTimeout(() => {
@@ -573,7 +587,6 @@ function viewSession(name, role) {
   window._triggeredByJoinClick = false;
   window._joinedViaInvite = false;
 }
-
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
