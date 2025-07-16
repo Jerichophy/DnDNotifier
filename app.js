@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest 69 na build");
+console.log("Using latest hi na build");
 
 let nickname = "";
 let userId = "";
@@ -133,7 +133,7 @@ async function handleDiscordLogin() {
     : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
 
   document.getElementById("discord-login").classList.add("hidden");
-  document.getElementById("dashboard-section").classList.remove("hidden");
+  //document.getElementById("dashboard-section").classList.remove("hidden");
 
   return { userId, nickname };
 }
