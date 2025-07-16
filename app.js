@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest app2.js build");
+console.log("Using latest app1.0.js build");
 let nickname = "";
 let userId = "";
 
@@ -310,11 +310,16 @@ function viewSession(name, role) {
       container.innerHTML += `<p><strong>Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
     if (role === "DM") {
-      container.innerHTML += session.sessionLocked
-        ? `<button onclick="unlockSession('${name}')">🔓 Unlock Session</button>`
-        : `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`;
-      container.innerHTML += `<button onclick="startNewRound('${name}')">🔁 Start New Round</button>`;
-      container.innerHTML += `<button onclick="deleteSession('${name}')">🗑️ Delete Session</button>`;
+      const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
+      container.innerHTML += `
+        <p><strong>Invite Link:</strong></p>
+        <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
+          📋 Copy Invite Link
+        </button>
+        <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
+          🔗 Open Invite Link
+        </a>
+      `;
     }
   });
 
