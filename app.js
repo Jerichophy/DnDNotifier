@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("no avail2 build");
+console.log("no avail3 build");
 
 let nickname = "";
 let userId = "";
@@ -572,17 +572,19 @@ function loadUserSessions() {
 }
 
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
-  document.getElementById("availability-modal").classList.remove("hidden");
-
-  const readyInput = document.getElementById("readyAt");
-  const waitInput = document.getElementById("waitUntil");
-
-  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
-  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
-
-  document.getElementById("modal-session-name").value = sessionName;
-  document.getElementById("modal-player-id").value = playerId;
-  document.getElementById("modal-role").value = role;
+    console.trace("[DEBUG] openAvailabilityModal called with args:", args);
+  return;
+// document.getElementById("availability-modal").classList.remove("hidden");
+//
+//  const readyInput = document.getElementById("readyAt");
+//  const waitInput = document.getElementById("waitUntil");
+//
+ // if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
+//  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+//
+//  document.getElementById("modal-session-name").value = sessionName;
+//  document.getElementById("modal-player-id").value = playerId;
+//  document.getElementById("modal-role").value = role;
 }
 
 function closeAvailabilityModal() {
