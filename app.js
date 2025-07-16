@@ -476,19 +476,19 @@ function viewSession(name, role) {
                   const canEdit = isSelf && !session.sessionLocked;
 
                   // 👉 Prompt availability only once per session view
-                  //if (
-                    //window._triggeredByJoinClick &&
-                    //isSelf &&
-                    //role === "Player" && // ← Must be approved
-                    //(!p.readyAt || !p.waitUntil) &&
-                    //!session.sessionLocked &&
-                    //!window._availabilityPrompted
-                  //) {
-                  //  window._availabilityPrompted = true;
-                  //  setTimeout(() => {
-                  //    openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
-                  //  }, 0);
-                  //}
+                  if (
+                    window._triggeredByJoinClick &&
+                    isSelf &&
+                    role === "Player" && // ← Must be approved
+                    (!p.readyAt || !p.waitUntil) &&
+                    !session.sessionLocked &&
+                    !window._availabilityPrompted
+                  ) {
+                    window._availabilityPrompted = true;
+                    setTimeout(() => {
+                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
+                    }, 0);
+                  }
 
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
@@ -572,21 +572,17 @@ function loadUserSessions() {
 }
 
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
-    console.trace("[DEBUG] openAvailabilityModal called with args:", {
-      sessionName, playerId, currentReadyAt, currentWaitUntil, role
-    });
-  return;
-// document.getElementById("availability-modal").classList.remove("hidden");
-//
-//  const readyInput = document.getElementById("readyAt");
-//  const waitInput = document.getElementById("waitUntil");
-//
- // if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
-//  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
-//
-//  document.getElementById("modal-session-name").value = sessionName;
-//  document.getElementById("modal-player-id").value = playerId;
-//  document.getElementById("modal-role").value = role;
+  document.getElementById("availability-modal").classList.remove("hidden");
+
+  const readyInput = document.getElementById("readyAt");
+  const waitInput = document.getElementById("waitUntil");
+
+  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
+  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+
+  document.getElementById("modal-session-name").value = sessionName;
+  document.getElementById("modal-player-id").value = playerId;
+  document.getElementById("modal-role").value = role;
 }
 
 function closeAvailabilityModal() {
@@ -628,7 +624,6 @@ function savePendingAvailability(sessionName, playerId) {
     loadUserSessions();
   });
 }
-
 
 // Converts string "08-12 18:30" to "2025-08-12T18:30"
 function toHTMLDatetime(str) {
