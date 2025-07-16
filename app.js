@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug last69 build");
+console.log("no avail build");
 
 let nickname = "";
 let userId = "";
@@ -476,19 +476,19 @@ function viewSession(name, role) {
                   const canEdit = isSelf && !session.sessionLocked;
 
                   // 👉 Prompt availability only once per session view
-                  if (
-                    window._triggeredByJoinClick &&
-                    isSelf &&
-                    role === "Player" && // ← Must be approved
-                    (!p.readyAt || !p.waitUntil) &&
-                    !session.sessionLocked &&
-                    !window._availabilityPrompted
-                  ) {
-                    window._availabilityPrompted = true;
-                    setTimeout(() => {
-                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
-                    }, 0);
-                  }
+                  //if (
+                    //window._triggeredByJoinClick &&
+                    //isSelf &&
+                    //role === "Player" && // ← Must be approved
+                    //(!p.readyAt || !p.waitUntil) &&
+                    //!session.sessionLocked &&
+                    //!window._availabilityPrompted
+                  //) {
+                  //  window._availabilityPrompted = true;
+                  //  setTimeout(() => {
+                  //    openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
+                  //  }, 0);
+                  //}
 
                   return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
