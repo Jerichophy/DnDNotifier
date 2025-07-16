@@ -432,7 +432,9 @@ function deleteSession(name) {
 function viewSession(name, role) {
   console.log("[viewSession] role:", role);
   console.log("[viewSession] session name:", name);
+
   window._triggeredByJoinClick = window._triggeredByJoinClick || false;
+
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -442,6 +444,8 @@ function viewSession(name, role) {
 
   const { db, ref, get, onValue } = window.dndApp;
   const sessionRef = ref(db, `sessions/${name}`);
+  const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
+  const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
@@ -451,6 +455,7 @@ function viewSession(name, role) {
       content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
 
+    // DM-only tools
     if (role === "DM") {
       const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
       content += `
@@ -460,11 +465,8 @@ function viewSession(name, role) {
           <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
             📋 Copy Invite Link
           </button>
-          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
-            🔗 Open Invite Link
-          </a>
+          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">🔗 Open Invite Link</a>
         </div>
-
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>🛠️ Session Controls</h3>
           <div style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -480,10 +482,7 @@ function viewSession(name, role) {
 
     container.innerHTML = content;
 
-    const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
-    const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
-
-    // 🔁 Show availability modal for pending players
+    // 🔁 Check if current user is pending and missing availability → prompt modal
     get(pendingRef).then((snap) => {
       const data = snap.val() || {};
       const pendingPlayer = data[userId];
@@ -510,21 +509,7 @@ function viewSession(name, role) {
       ) {
         window._availabilityPrompted = true;
         setTimeout(() => {
-          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "");
-        }, 0);
-      }
-
-      {
-        window._availabilityPrompted = true;
-        console.log("[viewSession] Should prompt availability modal?", {
-          _triggeredByJoinClick: window._triggeredByJoinClick,
-          pendingPlayer,
-          sessionLocked: session.sessionLocked,
-          _availabilityPrompted: window._availabilityPrompted
-        });
-
-        setTimeout(() => {
-          openAvailabilityModal(name, userId, pendingPlayer?.readyAt || "", pendingPlayer?.waitUntil || "", "pending");
+          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "", "pending");
 
           const notice = document.createElement("div");
           notice.innerHTML = `
@@ -537,7 +522,7 @@ function viewSession(name, role) {
       }
     });
 
-    // Approved players
+    // ✅ Approved players
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
       let html = `
@@ -545,28 +530,16 @@ function viewSession(name, role) {
           <h3>✅ Approved Players</h3>
           ${
             Object.keys(data).length
-              ? "<ul>" + Object.entries(data).map(([id, p]) => {
+              ? "<ul>" +
+                Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
 
-                  if (
-                    (window._triggeredByJoinClick || window._joinedViaInvite) &&
-                    isSelf &&
-                    role === "Player" &&
-                    (!p.readyAt || !p.waitUntil) &&
-                    !session.sessionLocked &&
-                    !window._availabilityPrompted
-                  ) {
-                    window._availabilityPrompted = true;
-                    setTimeout(() => {
-                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
-                    }, 0);
-                  }
-
-                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
+                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
-                }).join("") + "</ul>"
+                }).join("") +
+                "</ul>"
               : "<i>No approved players yet.</i>"
           }
         </div>
@@ -574,36 +547,23 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
-    // Pending players
+    // ⏳ Pending players (for DM view)
     onValue(pendingRef, (snapshot) => {
       const data = snapshot.val() || {};
-      let html = "";
-
-      if (
-        window._triggeredByJoinClick &&
-        data?.[userId] &&
-        (!data[userId].readyAt || !data[userId].waitUntil) &&
-        !session.sessionLocked &&
-        !window._availabilityPrompted
-      ) {
-        window._availabilityPrompted = true;
-        setTimeout(() => {
-          openAvailabilityModal(name, userId, data[userId].readyAt || "", data[userId].waitUntil || "", "pending");
-        }, 0);
-      }
-
       if (role === "DM") {
-        html += `
+        let html = `
           <div style="margin-top: 20px;">
             <h3>⏳ Pending Players</h3>
             ${
               Object.keys(data).length
-                ? "<ul>" + Object.entries(data).map(([id, p]) => {
+                ? "<ul>" +
+                  Object.entries(data).map(([id, p]) => {
                     return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
                       <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
                       <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
                     </li>`;
-                  }).join("") + "</ul>"
+                  }).join("") +
+                  "</ul>"
                 : "<i>No pending players.</i>"
             }
           </div>
@@ -611,10 +571,12 @@ function viewSession(name, role) {
         container.innerHTML += html;
       }
 
+      // 🔚 Always clear join-click state after view
       window._triggeredByJoinClick = false;
     });
   });
 
+  // 🔚 Safety fallback
   window._triggeredByJoinClick = false;
 }
 
