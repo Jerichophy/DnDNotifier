@@ -728,15 +728,13 @@ window.onload = async () => {
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
 
   const params = new URLSearchParams(window.location.search);
-  let joinName = params.get("join");
-
+  let joinName = params.get("join") || localStorage.getItem("pendingJoin");
   if (joinName) {
-    console.log(`[DEBUG] Found ?join=${joinName} in URL`);
-    localStorage.setItem("pendingJoin", joinName); // Store for after login
+    localStorage.setItem("pendingJoin", joinName);
   } else {
-    console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
+
 
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
