@@ -445,16 +445,29 @@ function backToDashboard() {
   loadUserSessions();
 }
 
-window.onload = () => {
-  handleDiscordLogin();
-
-  // Auto-fill join if "?join=session-name" is present
+window.onload = async () => {
   const params = new URLSearchParams(window.location.search);
   const joinName = params.get("join");
+
+  // Handle Discord login
+  await handleDiscordLogin();
+
   if (joinName) {
+    // Prefill the session name
     document.getElementById("session-id-input").value = joinName;
+
+    // Prompt the user to confirm they want to join
+    const confirmJoin = confirm(`You've been invited to join the session '${joinName}'. Do you want to continue?`);
+    if (confirmJoin) {
+      joinSession();
+
+      // Optionally clean the URL after joining
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
   }
 };
+
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
 window.joinSession = joinSession;
