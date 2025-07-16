@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug build");
+console.log("debug pt 2 build");
 
 let nickname = "";
 let userId = "";
@@ -69,6 +69,12 @@ async function autoJoinAndViewSession(sessionName) {
 
   const session = sessionSnap.val();
   console.log("[DEBUG] Session data loaded:", session);
+
+  if (session.dm?.id === userId) {
+    console.log("[DEBUG] You are the DM. Viewing session directly.");
+    viewSession(sessionName, "DM");
+    return;
+  }
 
   if (session.sessionLocked) {
     console.warn("[DEBUG] Session is locked. Cannot join.");
