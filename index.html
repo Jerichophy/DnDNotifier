@@ -52,26 +52,6 @@
     <button onclick="backToDashboard()">Back</button>
   </div>
 
-    <!-- Availability Modal -->
-  <div id="availability-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; 
-      background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1000;">
-    <form id="availability-form" style="background:#fff; padding:20px; border-radius:10px; width:300px;">
-      <h3>🕒 Set Your Availability</h3>
-      <label for="readyAt">Ready At:</label>
-      <input type="datetime-local" id="readyAt" required><br><br>
-
-      <label for="waitUntil">Wait Until:</label>
-      <input type="datetime-local" id="waitUntil" required><br><br>
-
-      <input type="hidden" id="modal-session-name">
-      <input type="hidden" id="modal-player-id">
-      <input type="hidden" id="modal-context" value="approved">
-
-      <button type="submit">Save</button>
-      <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
-    </form>
-  </div>
-
 <script type="module" src="app.js"></script>
 </body>
 </html>
