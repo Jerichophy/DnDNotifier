@@ -201,6 +201,9 @@ function createSession() {
 
 function joinSession(sessionNameFromLink) {
   const name = sessionNameFromLink || document.getElementById("session-id-input").value.trim().toLowerCase();
+  console.log("[joinSession] Called with:", name);
+  console.log("[joinSession] userId:", userId);
+  console.log("[joinSession] _triggeredByJoinClick:", window._triggeredByJoinClick);
   if (!name) return;
 
   const { db, ref, set, get } = window.dndApp;
@@ -427,7 +430,9 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
-  window._triggeredByJoinClick = window._triggeredByJoinClick || false; 
+  console.log("[viewSession] role:", role);
+  console.log("[viewSession] session name:", name);
+
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -437,19 +442,19 @@ function viewSession(name, role) {
 
   const { db, ref, get, onValue } = window.dndApp;
   const sessionRef = ref(db, `sessions/${name}`);
+  const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
+  const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
     let content = "";
 
-    if (session.sessionStartTime) {
+    if (session?.sessionStartTime) {
       content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
 
-    // DM-only tools
     if (role === "DM") {
       const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
-
       content += `
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>📨 Invite Players</h3>
@@ -457,11 +462,8 @@ function viewSession(name, role) {
           <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
             📋 Copy Invite Link
           </button>
-          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
-            🔗 Open Invite Link
-          </a>
+          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">🔗 Open Invite Link</a>
         </div>
-
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>🛠️ Session Controls</h3>
           <div style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -477,10 +479,38 @@ function viewSession(name, role) {
 
     container.innerHTML = content;
 
-    const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
-    const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
+    // ✅ Always show availability modal if user is in session and not locked
+    Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
+      const pendingData = pendingSnap.val() || {};
+      const approvedData = approvedSnap.val() || {};
 
-    // Approved players
+      const pendingPlayer = pendingData[userId];
+      const approvedPlayer = approvedData[userId];
+
+      const isSelfPending = !!pendingPlayer;
+      const isSelfApproved = !!approvedPlayer;
+
+      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt || "";
+      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil || "";
+
+      const isPlayer = (role === "Player" || role === "Pending");
+      const notLocked = !session.sessionLocked;
+      const isInSession = isSelfPending || isSelfApproved;
+
+      if (isPlayer && isInSession && notLocked) {
+        openAvailabilityModal(name, userId, readyAt, waitUntil, isSelfPending ? "pending" : "approved");
+
+        const notice = document.createElement("div");
+        notice.innerHTML = `
+          <p style="margin-top: 10px; font-style: italic; color: #555;">
+            ⏳ Your availability has been sent. ${isSelfPending ? "Waiting for the DM to approve your request." : "You may update it anytime."}
+          </p>
+        `;
+        document.querySelector(".modal")?.appendChild(notice);
+      }
+    });
+
+    // ✅ Approved players list
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
       let html = `
@@ -488,29 +518,15 @@ function viewSession(name, role) {
           <h3>✅ Approved Players</h3>
           ${
             Object.keys(data).length
-              ? "<ul>" + Object.entries(data).map(([id, p]) => {
+              ? "<ul>" +
+                Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
-
-                  // 👉 Prompt availability only once per session view
-                  if (
-                    window._triggeredByJoinClick &&
-                    isSelf &&
-                    role === "Player" && // ← Must be approved
-                    (!p.readyAt || !p.waitUntil) &&
-                    !session.sessionLocked &&
-                    !window._availabilityPrompted
-                  ) {
-                    window._availabilityPrompted = true;
-                    setTimeout(() => {
-                      openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "");
-                    }, 0);
-                  }
-
-                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
+                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
                     ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
-                }).join("") + "</ul>"
+                }).join("") +
+                "</ul>"
               : "<i>No approved players yet.</i>"
           }
         </div>
@@ -518,50 +534,33 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
-
-    // Pending players (DM only)
-    if (role === "DM") {
-      onValue(pendingRef, (snapshot) => {
-        const data = snapshot.val() || {};
+    // ⏳ Pending players list
+    onValue(pendingRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      if (role === "DM") {
         let html = `
           <div style="margin-top: 20px;">
             <h3>⏳ Pending Players</h3>
             ${
               Object.keys(data).length
-                ? "<ul>" + Object.entries(data).map(([id, p]) => {
-                    const isSelf = id === userId;
-                    const canEdit = isSelf && !session.sessionLocked;
-
-                    // 🟡 Prompt availability modal if user just joined and no time set
-                    if (
-                      window._triggeredByJoinClick &&
-                      isSelf &&
-                      (!p.readyAt || !p.waitUntil) &&
-                      !session.sessionLocked &&
-                      !window._availabilityPrompted
-                    ) {
-                      window._availabilityPrompted = true;
-                      setTimeout(() => {
-                        openAvailabilityModal(name, userId, p.readyAt || "", p.waitUntil || "", "pending");
-                      }, 0);
-                    }
-
+                ? "<ul>" +
+                  Object.entries(data).map(([id, p]) => {
                     return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
-                      ${role === "DM" ? `
-                        <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                        <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>` : ""}
+                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
                     </li>`;
-                  }).join("") + "</ul>"
+                  }).join("") +
+                  "</ul>"
                 : "<i>No pending players.</i>"
             }
           </div>
         `;
         container.innerHTML += html;
-      });
-    }
-    window._triggeredByJoinClick = false;
+      }
+    });
+  }).catch((err) => {
+    console.error("🔥 Failed to load session data:", err);
   });
-  window._triggeredByJoinClick = false;
 }
 
 function editAvailability(sessionName, playerId) {
@@ -751,6 +750,7 @@ window.onload = async () => {
   // Set global user info
   userId = userInfo.userId;
   nickname = userInfo.nickname;
+  window.userName = nickname;
 
   // Show user info
   document.getElementById("user-name").textContent = nickname;
@@ -762,7 +762,6 @@ window.onload = async () => {
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
-  // 👇 Do NOT auto-join anymore — user must click "Join"
   if (joinName) {
     console.log(`[DEBUG] Join param '${joinName}' detected. Auto-joining now.`);
     window._triggeredByJoinClick = true;
