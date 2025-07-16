@@ -433,9 +433,6 @@ function viewSession(name, role) {
   console.log("[viewSession] role:", role);
   console.log("[viewSession] session name:", name);
 
-  window._triggeredByJoinClick = window._triggeredByJoinClick || false;
-  window._joinedViaInvite = window._joinedViaInvite || false;
-
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -447,9 +444,6 @@ function viewSession(name, role) {
   const sessionRef = ref(db, `sessions/${name}`);
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
   const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
-
-  console.debug("[AVAILABILITY CHECK] approvedRef path:", approvedRef._path?.pieces_);
-  console.debug("[AVAILABILITY CHECK] pendingRef path:", pendingRef._path?.pieces_);
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
@@ -485,13 +479,8 @@ function viewSession(name, role) {
 
     container.innerHTML = content;
 
-    // ✅ Availability check
-    console.log("[AVAILABILITY CHECK] Starting check...");
-    console.debug("[AVAILABILITY CHECK] Awaiting Firebase get calls...");
-
+    // ✅ Always show availability modal if user is in session and not locked
     Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
-      console.debug("[AVAILABILITY CHECK] Firebase reads finished successfully.");
-
       const pendingData = pendingSnap.val() || {};
       const approvedData = approvedSnap.val() || {};
 
@@ -501,49 +490,24 @@ function viewSession(name, role) {
       const isSelfPending = !!pendingPlayer;
       const isSelfApproved = !!approvedPlayer;
 
-      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt;
-      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil;
+      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt || "";
+      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil || "";
 
-      const shouldPrompt =
-        (window._triggeredByJoinClick || window._joinedViaInvite) &&
-        role === "Player" &&
-        (isSelfPending || isSelfApproved) &&
-        (!readyAt || !waitUntil) &&
-        !session.sessionLocked &&
-        !window._availabilityPrompted;
+      const isPlayer = (role === "Player" || role === "Pending");
+      const notLocked = !session.sessionLocked;
+      const isInSession = isSelfPending || isSelfApproved;
 
-      console.debug("[AVAILABILITY CHECK LOGIC]", {
-        pendingData,
-        approvedData,
-        _triggeredByJoinClick: window._triggeredByJoinClick,
-        _joinedViaInvite: window._joinedViaInvite,
-        isSelfPending,
-        isSelfApproved,
-        readyAt,
-        waitUntil,
-        sessionLocked: session.sessionLocked,
-        shouldPrompt,
-        _availabilityPrompted: window._availabilityPrompted
-      });
+      if (isPlayer && isInSession && notLocked) {
+        openAvailabilityModal(name, userId, readyAt, waitUntil, isSelfPending ? "pending" : "approved");
 
-      if (shouldPrompt) {
-        window._availabilityPrompted = true;
-        setTimeout(() => {
-          openAvailabilityModal(name, userId, readyAt || "", waitUntil || "", isSelfPending ? "pending" : "approved");
-
-          const notice = document.createElement("div");
-          notice.innerHTML = `
-            <p style="margin-top: 10px; font-style: italic; color: #555;">
-              ⏳ Your availability has been sent. ${isSelfPending ? "Waiting for the DM to approve your request." : "You may update it anytime."}
-            </p>
-          `;
-          document.querySelector(".modal")?.appendChild(notice);
-        }, 0);
-      } else {
-        console.debug("[AVAILABILITY CHECK] No need to prompt user.");
+        const notice = document.createElement("div");
+        notice.innerHTML = `
+          <p style="margin-top: 10px; font-style: italic; color: #555;">
+            ⏳ Your availability has been sent. ${isSelfPending ? "Waiting for the DM to approve your request." : "You may update it anytime."}
+          </p>
+        `;
+        document.querySelector(".modal")?.appendChild(notice);
       }
-    }).catch((err) => {
-      console.error("[AVAILABILITY CHECK ERROR] Firebase calls failed:", err);
     });
 
     // ✅ Approved players list
@@ -593,18 +557,10 @@ function viewSession(name, role) {
         `;
         container.innerHTML += html;
       }
-
-      // ✅ Reset flags
-      window._triggeredByJoinClick = false;
-      window._joinedViaInvite = false;
     });
   }).catch((err) => {
     console.error("🔥 Failed to load session data:", err);
   });
-
-  // Final fallback reset
-  window._triggeredByJoinClick = false;
-  window._joinedViaInvite = false;
 }
 
 function editAvailability(sessionName, playerId) {
