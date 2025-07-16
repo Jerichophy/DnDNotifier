@@ -451,10 +451,8 @@ function viewSession(name, role) {
       content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
 
-    // DM-only tools
     if (role === "DM") {
       const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
-
       content += `
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>📨 Invite Players</h3>
@@ -485,19 +483,37 @@ function viewSession(name, role) {
     const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
     const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
-    // 🔁 Show availability modal for pending players (non-DM too)
+    // 🔁 Show availability modal for pending players
     get(pendingRef).then((snap) => {
       const data = snap.val() || {};
       const pendingPlayer = data[userId];
+      const isSelf = !!pendingPlayer;
+
+      console.debug("[AVAILABILITY CHECK]", {
+        _triggeredByJoinClick: window._triggeredByJoinClick,
+        _joinedViaInvite: window._joinedViaInvite,
+        isSelf,
+        role,
+        readyAt: pendingPlayer?.readyAt,
+        waitUntil: pendingPlayer?.waitUntil,
+        sessionLocked: session.sessionLocked,
+        _availabilityPrompted: window._availabilityPrompted
+      });
 
       if (
         (window._triggeredByJoinClick || window._joinedViaInvite) &&
         isSelf &&
         role === "Player" &&
-        (!p.readyAt || !p.waitUntil) &&
+        (!pendingPlayer?.readyAt || !pendingPlayer?.waitUntil) &&
         !session.sessionLocked &&
         !window._availabilityPrompted
-      )
+      ) {
+        window._availabilityPrompted = true;
+        setTimeout(() => {
+          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "");
+        }, 0);
+      }
+
       {
         window._availabilityPrompted = true;
         console.log("[viewSession] Should prompt availability modal?", {
@@ -508,9 +524,8 @@ function viewSession(name, role) {
         });
 
         setTimeout(() => {
-          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "", "pending");
+          openAvailabilityModal(name, userId, pendingPlayer?.readyAt || "", pendingPlayer?.waitUntil || "", "pending");
 
-          // 👇 Also inject a message below the modal area
           const notice = document.createElement("div");
           notice.innerHTML = `
             <p style="margin-top: 10px; font-style: italic; color: #555;">
@@ -535,7 +550,7 @@ function viewSession(name, role) {
                   const canEdit = isSelf && !session.sessionLocked;
 
                   if (
-                    window._triggeredByJoinClick &&
+                    (window._triggeredByJoinClick || window._joinedViaInvite) &&
                     isSelf &&
                     role === "Player" &&
                     (!p.readyAt || !p.waitUntil) &&
@@ -559,12 +574,11 @@ function viewSession(name, role) {
       container.innerHTML += html;
     });
 
-    // Pending players (show for DM and prompt modal for everyone if needed)
+    // Pending players
     onValue(pendingRef, (snapshot) => {
       const data = snapshot.val() || {};
       let html = "";
 
-      // 🟡 Prompt availability modal if user just joined and is pending
       if (
         window._triggeredByJoinClick &&
         data?.[userId] &&
@@ -578,7 +592,6 @@ function viewSession(name, role) {
         }, 0);
       }
 
-      // 👁️ Only DMs see the full pending player list
       if (role === "DM") {
         html += `
           <div style="margin-top: 20px;">
@@ -604,7 +617,6 @@ function viewSession(name, role) {
 
   window._triggeredByJoinClick = false;
 }
-
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
