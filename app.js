@@ -427,6 +427,8 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
+  console.log("[viewSession] role:", role);
+  console.log("[viewSession] session name:", name);
   window._triggeredByJoinClick = window._triggeredByJoinClick || false;
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
@@ -508,7 +510,7 @@ function viewSession(name, role) {
         }, 0);
       }
     });
-    
+
     // Approved players
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
