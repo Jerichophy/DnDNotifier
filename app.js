@@ -480,6 +480,35 @@ function viewSession(name, role) {
     const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
     const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
+    // 🔁 Show availability modal for pending players (non-DM too)
+    get(pendingRef).then((snap) => {
+      const data = snap.val() || {};
+      const pendingPlayer = data[userId];
+
+      if (
+        window._triggeredByJoinClick &&
+        pendingPlayer &&
+        (!pendingPlayer.readyAt || !pendingPlayer.waitUntil) &&
+        !session.sessionLocked &&
+        !window._availabilityPrompted
+      ) {
+        window._availabilityPrompted = true;
+
+        setTimeout(() => {
+          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "", "pending");
+
+          // 👇 Also inject a message below the modal area
+          const notice = document.createElement("div");
+          notice.innerHTML = `
+            <p style="margin-top: 10px; font-style: italic; color: #555;">
+              ⏳ Your availability has been sent. Waiting for the DM to approve your request.
+            </p>
+          `;
+          document.querySelector(".modal")?.appendChild(notice);
+        }, 0);
+      }
+    });
+    
     // Approved players
     onValue(approvedRef, (snapshot) => {
       const data = snapshot.val() || {};
