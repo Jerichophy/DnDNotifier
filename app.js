@@ -549,29 +549,13 @@ function viewSession(name, role) {
 }
 
 function editAvailability(sessionName, playerId) {
-  const { db, ref, get, set } = window.dndApp;
+  const { db, ref, get } = window.dndApp;
   const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
 
   get(approvedRef).then((snap) => {
     if (!snap.exists()) return;
-
     const player = snap.val();
-    const readyAt = prompt("Update: What time are you ready? (HH:MM)", player.readyAt || "");
-    const waitUntil = prompt("Update: How long will you wait? (HH:MM)", player.waitUntil || "");
-
-    if (!readyAt || !waitUntil) {
-      alert("Update canceled.");
-      return;
-    }
-
-    set(approvedRef, {
-      ...player,
-      readyAt,
-      waitUntil
-    }).then(() => {
-      sendDiscordNotification(`✏️ ${player.name} updated their availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-      alert("Availability updated!");
-    });
+    openAvailabilityModal(sessionName, playerId, player.readyAt || "", player.waitUntil || "");
   });
 }
 
@@ -609,6 +593,42 @@ function loadUserSessions() {
   });
 }
 
+function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "") {
+  document.getElementById("availability-modal").classList.remove("hidden");
+
+  const readyInput = document.getElementById("readyAt");
+  const waitInput = document.getElementById("waitUntil");
+
+  // Pre-fill if existing values exist
+  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
+  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+
+  document.getElementById("modal-session-name").value = sessionName;
+  document.getElementById("modal-player-id").value = playerId;
+}
+
+function closeAvailabilityModal() {
+  document.getElementById("availability-modal").classList.add("hidden");
+}
+
+// Converts string "08-12 18:30" to "2025-08-12T18:30"
+function toHTMLDatetime(str) {
+  if (!str) return "";
+  const [month, day, time] = str.split(/[-\s]/);
+  const year = new Date().getFullYear(); // use current year
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${time}`;
+}
+
+// Converts HTML datetime-local back to MM-DD HH:MM
+function fromHTMLDatetime(htmlDateStr) {
+  const d = new Date(htmlDateStr);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}-${dd} ${hh}:${mins}`;
+}
+
 function backToDashboard() {
   document.getElementById("session-view").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
@@ -616,6 +636,35 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
+    document.getElementById("availability-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const sessionName = document.getElementById("modal-session-name").value;
+    const playerId = document.getElementById("modal-player-id").value;
+    const readyHTML = document.getElementById("readyAt").value;
+    const waitHTML = document.getElementById("waitUntil").value;
+
+    const readyAt = fromHTMLDatetime(readyHTML);
+    const waitUntil = fromHTMLDatetime(waitHTML);
+
+    const { db, ref, set, get } = window.dndApp;
+    const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+
+    const snap = await get(approvedRef);
+    if (!snap.exists()) return alert("Player not found.");
+
+    const player = snap.val();
+
+    await set(approvedRef, {
+      ...player,
+      readyAt,
+      waitUntil
+    });
+
+    sendDiscordNotification(`✏️ ${player.name} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+    alert("Availability updated!");
+    closeAvailabilityModal();
+  });
   console.log("[DEBUG] Page loaded. Checking URL and localStorage for join info...");
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join");
