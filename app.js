@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug build");
+console.log("debug2 build");
 
 let nickname = "";
 let userId = "";
@@ -680,7 +680,16 @@ window.onload = async () => {
     localStorage.removeItem("pendingJoin");
   }
 
-  const userInfo = await handleDiscordLogin();
+  let userInfo = await handleDiscordLogin();
+
+  if (!userInfo) {
+    // If not logged in yet, and there's a ?join param, save it and redirect to Discord login
+    if (joinName) {
+      localStorage.setItem("pendingJoin", joinName);
+    }
+    loginWithDiscord();
+    return; // stop here until after login
+  }
 
   if (userInfo) {
     console.log(`[DEBUG] User info loaded:`, userInfo);
@@ -698,7 +707,10 @@ window.onload = async () => {
     console.log("[DEBUG] No user info found. User not logged in.");
   }
 
-  if (joinName && userId) {
+  if (joinName && userInfo && userInfo.userId) {
+    userId = userInfo.userId;
+    nickname = userInfo.nickname;
+
     console.log(`[DEBUG] Attempting auto-join with session '${joinName}' for user '${userId}'`);
     await autoJoinAndViewSession(joinName.toLowerCase());
     return;
