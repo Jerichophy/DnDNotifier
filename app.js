@@ -483,44 +483,53 @@ function viewSession(name, role) {
     container.innerHTML = content;
 
     // 🔁 Check if current user is pending and missing availability → prompt modal
-    get(pendingRef).then((snap) => {
-      const data = snap.val() || {};
-      const pendingPlayer = data[userId];
-      const isSelf = !!pendingPlayer;
+    Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
+      const pendingData = pendingSnap.val() || {};
+      const approvedData = approvedSnap.val() || {};
+
+      const pendingPlayer = pendingData[userId];
+      const approvedPlayer = approvedData[userId];
+
+      const isSelfPending = !!pendingPlayer;
+      const isSelfApproved = !!approvedPlayer;
+
+      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt;
+      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil;
+
+      const shouldPrompt =
+        (window._triggeredByJoinClick || window._joinedViaInvite) &&
+        role === "Player" &&
+        (isSelfPending || isSelfApproved) &&
+        (!readyAt || !waitUntil) &&
+        !session.sessionLocked &&
+        !window._availabilityPrompted;
 
       console.debug("[AVAILABILITY CHECK]", {
         _triggeredByJoinClick: window._triggeredByJoinClick,
-        _joinedViaInvite: window._joinedViaInvite,
-        isSelf,
-        role,
-        readyAt: pendingPlayer?.readyAt,
-        waitUntil: pendingPlayer?.waitUntil,
-        sessionLocked: session.sessionLocked,
-        _availabilityPrompted: window._availabilityPrompted
+        isSelfPending,
+        isSelfApproved,
+        readyAt,
+        waitUntil,
+        shouldPrompt,
+        _availabilityPrompted: window._availabilityPrompted,
       });
 
-      if (
-        (window._triggeredByJoinClick || window._joinedViaInvite) &&
-        isSelf &&
-        role === "Player" &&
-        (!pendingPlayer?.readyAt || !pendingPlayer?.waitUntil) &&
-        !session.sessionLocked &&
-        !window._availabilityPrompted
-      ) {
+      if (shouldPrompt) {
         window._availabilityPrompted = true;
         setTimeout(() => {
-          openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "", "pending");
+          openAvailabilityModal(name, userId, readyAt || "", waitUntil || "", isSelfPending ? "pending" : "approved");
 
           const notice = document.createElement("div");
           notice.innerHTML = `
             <p style="margin-top: 10px; font-style: italic; color: #555;">
-              ⏳ Your availability has been sent. Waiting for the DM to approve your request.
+              ⏳ Your availability has been sent. ${isSelfPending ? "Waiting for the DM to approve your request." : "You may update it anytime."}
             </p>
           `;
           document.querySelector(".modal")?.appendChild(notice);
         }, 0);
       }
     });
+
 
     // ✅ Approved players
     onValue(approvedRef, (snapshot) => {
