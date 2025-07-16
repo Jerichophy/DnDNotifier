@@ -491,12 +491,14 @@ function viewSession(name, role) {
       const pendingPlayer = data[userId];
 
       if (
-        window._triggeredByJoinClick &&
-        pendingPlayer &&
-        (!pendingPlayer.readyAt || !pendingPlayer.waitUntil) &&
+        (window._triggeredByJoinClick || window._joinedViaInvite) &&
+        isSelf &&
+        role === "Player" &&
+        (!p.readyAt || !p.waitUntil) &&
         !session.sessionLocked &&
         !window._availabilityPrompted
-      ) {
+      )
+      {
         window._availabilityPrompted = true;
         console.log("[viewSession] Should prompt availability modal?", {
           _triggeredByJoinClick: window._triggeredByJoinClick,
