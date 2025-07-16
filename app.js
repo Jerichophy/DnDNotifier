@@ -201,6 +201,9 @@ function createSession() {
 
 function joinSession(sessionNameFromLink) {
   const name = sessionNameFromLink || document.getElementById("session-id-input").value.trim().toLowerCase();
+  console.log("[joinSession] Called with:", name);
+  console.log("[joinSession] userId:", userId);
+  console.log("[joinSession] _triggeredByJoinClick:", window._triggeredByJoinClick);
   if (!name) return;
 
   const { db, ref, set, get } = window.dndApp;
@@ -495,6 +498,12 @@ function viewSession(name, role) {
         !window._availabilityPrompted
       ) {
         window._availabilityPrompted = true;
+        console.log("[viewSession] Should prompt availability modal?", {
+          _triggeredByJoinClick: window._triggeredByJoinClick,
+          pendingPlayer,
+          sessionLocked: session.sessionLocked,
+          _availabilityPrompted: window._availabilityPrompted
+        });
 
         setTimeout(() => {
           openAvailabilityModal(name, userId, pendingPlayer.readyAt || "", pendingPlayer.waitUntil || "", "pending");
@@ -793,7 +802,6 @@ window.onload = async () => {
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
-  // 👇 Do NOT auto-join anymore — user must click "Join"
   if (joinName) {
     console.log(`[DEBUG] Join param '${joinName}' detected. Auto-joining now.`);
     window._triggeredByJoinClick = true;
