@@ -292,22 +292,46 @@ function lockSession(name) {
       alert("No approved players to calculate start time.");
       return;
     }
-    const times = Object.values(players).map(p => p.readyAt).filter(Boolean);
-    if (!times.length) {
+
+    const allTimes = Object.values(players).filter(p => p.readyAt && p.waitUntil);
+
+    if (allTimes.length === 0) {
       alert("No player availability to set session time.");
       return;
     }
-    const latestTime = times.reduce((a, b) => a > b ? a : b);
-    update(ref(db, `sessions/${name}`), { sessionLocked: true, sessionStartTime: latestTime }).then(() => {
+
+    // Get the latest readyAt among all players
+    const latestReadyAt = allTimes.reduce((latest, p) => {
+      return new Date(p.readyAt) > new Date(latest) ? p.readyAt : latest;
+    }, allTimes[0].readyAt);
+
+    // Check if this time is acceptable for all players
+    const conflicts = allTimes.filter(p => new Date(p.waitUntil) < new Date(latestReadyAt));
+
+    if (conflicts.length > 0) {
+      const conflictNames = conflicts.map(p => p.name).join(", ");
+      alert(`❌ Session cannot be locked.\nThe proposed time (${latestReadyAt}) is too late for: ${conflictNames}.`);
+      return;
+    }
+
+    // Lock session and save sessionStartTime
+    update(ref(db, `sessions/${name}`), {
+      sessionLocked: true,
+      sessionStartTime: latestReadyAt
+    }).then(() => {
       const { db, ref, get } = window.dndApp;
       get(ref(db, `sessions/${name}`)).then((sessionSnap) => {
         const session = sessionSnap.val();
-        const message = getJesterLockMessage(name, latestTime, session.dm.id, Object.keys(players));
+        const message = getJesterLockMessage(name, latestReadyAt, session.dm.id, Object.keys(players));
         sendDiscordNotification(message);
       });
-      alert(`Session locked. Starts at ${latestTime}`);
+      alert(`✅ Session locked. Starts at ${latestReadyAt}`);
       viewSession(name, "DM");
     });
+
+  }).catch((err) => {
+    console.error("[lockSession] Error loading approved players:", err);
+    alert("Failed to lock session. Please try again.");
   });
 }
 

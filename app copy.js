@@ -534,7 +534,15 @@ function viewSession(name, role) {
           }
         </div>
       `;
-      container.innerHTML += html;
+      // Remove any previous Approved Players section
+      const oldApproved = container.querySelector("#approved-players-section");
+      if (oldApproved) oldApproved.remove();
+
+      const approvedWrapper = document.createElement("div");
+      approvedWrapper.id = "approved-players-section";
+      approvedWrapper.innerHTML = html;
+      container.appendChild(approvedWrapper);
+
     });
 
     // ⏳ Pending players list
@@ -558,7 +566,13 @@ function viewSession(name, role) {
             }
           </div>
         `;
-        container.innerHTML += html;
+        const oldPending = container.querySelector("#pending-players-section");
+        if (oldPending) oldPending.remove();
+
+        const pendingWrapper = document.createElement("div");
+        pendingWrapper.id = "pending-players-section";
+        pendingWrapper.innerHTML = html;
+        container.appendChild(pendingWrapper);
       }
     });
   }).catch((err) => {
