@@ -139,6 +139,12 @@ async function handleDiscordLogin() {
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
 
+  window.userName = nickname;
+  window.userAvatar = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+
+
   return {
     userId,
     nickname,
@@ -193,8 +199,8 @@ function createSession() {
   });
 }
 
-function joinSession() {
-  const name = document.getElementById("session-id-input").value.trim().toLowerCase();
+function joinSession(sessionNameFromLink) {
+  const name = sessionNameFromLink || document.getElementById("session-id-input").value.trim().toLowerCase();
   if (!name) return;
 
   const { db, ref, set, get } = window.dndApp;
@@ -216,7 +222,7 @@ function joinSession() {
 
     get(approvedRef).then((approvedSnap) => {
       if (approvedSnap.exists()) {
-        alert("You are already part of this session.");
+        viewSession(name, session.dm === userId ? "DM" : "Player");
         return;
       }
 
@@ -232,12 +238,23 @@ function joinSession() {
           return;
         }
 
-        // Open modal instead of prompting
-        openAvailabilityModal(name, userId, "", "", "pending");
+        // ✅ Auto-join if from invite link
+        if (window._triggeredByJoinClick) {
+          set(pendingRef, {
+            name: window.userName,
+            avatar: window.userAvatar,
+          }).then(() => {
+            viewSession(name, "Player");
+          });
+        } else {
+          // ✅ Manual join: show modal
+          openAvailabilityModal(name, userId, "", "", "pending");
+        }
       });
     });
   });
 }
+
 
 
 function approvePlayer(name, id) {
@@ -410,7 +427,7 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
-  window._triggeredByJoinClick = window._triggeredByJoinClick || false; // ← ADD THIS LINE
+  window._triggeredByJoinClick = window._triggeredByJoinClick || false; 
   document.getElementById("dashboard-section").classList.add("hidden");
   document.getElementById("session-view").classList.remove("hidden");
   document.getElementById("view-session-name").textContent = name;
@@ -544,6 +561,7 @@ function viewSession(name, role) {
     }
     window._triggeredByJoinClick = false;
   });
+  window._triggeredByJoinClick = false;
 }
 
 function editAvailability(sessionName, playerId) {
@@ -756,6 +774,22 @@ window.onload = async () => {
   console.log("[DEBUG] Cleaning URL hash");
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionToJoin = params.get("join");
+
+  if (sessionToJoin) {
+    window._triggeredByJoinClick = true;
+
+    const interval = setInterval(() => {
+      if (window.userId && window.userName) {
+        clearInterval(interval);
+        joinSession(sessionToJoin); // ⬅️ Auto join via invite link
+      }
+    }, 500);
+  }
+});
 
 window.closeAvailabilityModal = closeAvailabilityModal;
 window.openAvailabilityModal = openAvailabilityModal;
