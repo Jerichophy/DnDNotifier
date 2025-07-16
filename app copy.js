@@ -430,6 +430,7 @@ function deleteSession(name) {
 }
 
 function viewSession(name, role) {
+  window._availabilityPromptedPerSession = window._availabilityPromptedPerSession || {};
   console.log("[viewSession] role:", role);
   console.log("[viewSession] session name:", name);
 
@@ -497,7 +498,9 @@ function viewSession(name, role) {
       const notLocked = !session.sessionLocked;
       const isInSession = isSelfPending || isSelfApproved;
 
-      if (isPlayer && isInSession && notLocked) {
+      if (isPlayer && isInSession && notLocked && !window._availabilityPromptedPerSession[name]) {
+        window._availabilityPromptedPerSession[name] = true;
+
         openAvailabilityModal(name, userId, readyAt, waitUntil, isSelfPending ? "pending" : "approved");
 
         const notice = document.createElement("div");
