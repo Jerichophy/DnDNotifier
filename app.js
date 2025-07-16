@@ -448,9 +448,8 @@ function viewSession(name, role) {
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
   const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
 
-  console.debug("[AVAILABILITY CHECK] pendingRef path:", pendingRef._path?.pieces_);
   console.debug("[AVAILABILITY CHECK] approvedRef path:", approvedRef._path?.pieces_);
-  console.debug("[viewSession] sessionRef path:", sessionRef._path?.pieces_);
+  console.debug("[AVAILABILITY CHECK] pendingRef path:", pendingRef._path?.pieces_);
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
@@ -486,11 +485,13 @@ function viewSession(name, role) {
 
     container.innerHTML = content;
 
-    // 🔁 Availability check
+    // ✅ Availability check
     console.log("[AVAILABILITY CHECK] Starting check...");
     console.debug("[AVAILABILITY CHECK] Awaiting Firebase get calls...");
 
     Promise.all([get(pendingRef), get(approvedRef)]).then(([pendingSnap, approvedSnap]) => {
+      console.debug("[AVAILABILITY CHECK] Firebase reads finished successfully.");
+
       const pendingData = pendingSnap.val() || {};
       const approvedData = approvedSnap.val() || {};
 
@@ -538,6 +539,8 @@ function viewSession(name, role) {
           `;
           document.querySelector(".modal")?.appendChild(notice);
         }, 0);
+      } else {
+        console.debug("[AVAILABILITY CHECK] No need to prompt user.");
       }
     }).catch((err) => {
       console.error("[AVAILABILITY CHECK ERROR] Firebase calls failed:", err);
@@ -591,7 +594,7 @@ function viewSession(name, role) {
         container.innerHTML += html;
       }
 
-      // ✅ Always reset join flags after loading
+      // ✅ Reset flags
       window._triggeredByJoinClick = false;
       window._joinedViaInvite = false;
     });
@@ -599,7 +602,9 @@ function viewSession(name, role) {
     console.error("🔥 Failed to load session data:", err);
   });
 
-  console.debug("[viewSession] End of function reached.");
+  // Final fallback reset
+  window._triggeredByJoinClick = false;
+  window._joinedViaInvite = false;
 }
 
 function editAvailability(sessionName, playerId) {
