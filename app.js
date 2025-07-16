@@ -450,7 +450,7 @@ function viewSession(name, role) {
 
   console.debug("[AVAILABILITY CHECK] pendingRef path:", pendingRef._path?.pieces_);
   console.debug("[AVAILABILITY CHECK] approvedRef path:", approvedRef._path?.pieces_);
-  Promise.all([get(pendingRef), get(approvedRef)])
+  console.debug("[viewSession] sessionRef path:", sessionRef._path?.pieces_);
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
@@ -599,11 +599,8 @@ function viewSession(name, role) {
     console.error("🔥 Failed to load session data:", err);
   });
 
-  // Final fallback
-  window._triggeredByJoinClick = false;
-  window._joinedViaInvite = false;
+  console.debug("[viewSession] End of function reached.");
 }
-
 
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
