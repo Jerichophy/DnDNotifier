@@ -306,22 +306,87 @@ function viewSession(name, role) {
 
   get(sessionRef).then((snapshot) => {
     const session = snapshot.val();
+    let content = "";
+
     if (session.sessionStartTime) {
-      container.innerHTML += `<p><strong>Session Start Time:</strong> ${session.sessionStartTime}</p>`;
+      content += `<p><strong>🕒 Session Start Time:</strong> ${session.sessionStartTime}</p>`;
     }
+
+    // DM-only tools
     if (role === "DM") {
       const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
-      container.innerHTML += `
-        <p><strong>Invite Link:</strong></p>
-        <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
-          📋 Copy Invite Link
-        </button>
-        <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
-          🔗 Open Invite Link
-        </a>
+
+      content += `
+        <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
+          <h3>📨 Invite Players</h3>
+          <p><strong>Invite Link:</strong></p>
+          <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
+            📋 Copy Invite Link
+          </button>
+          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
+            🔗 Open Invite Link
+          </a>
+        </div>
+
+        <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
+          <h3>🛠️ Session Controls</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            ${session.sessionLocked
+              ? `<button onclick="unlockSession('${name}')">🔓 Unlock Session</button>`
+              : `<button onclick="lockSession('${name}')">🔒 Lock Session</button>`}
+            <button onclick="startNewRound('${name}')">🔁 Start New Round</button>
+            <button onclick="deleteSession('${name}')">🗑️ Delete Session</button>
+          </div>
+        </div>
       `;
     }
+
+    container.innerHTML = content;
+
+    const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
+    const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
+
+    // Approved players
+    onValue(approvedRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      let html = `
+        <div style="margin-top: 20px;">
+          <h3>✅ Approved Players</h3>
+          ${
+            Object.keys(data).length
+              ? "<ul>" + Object.entries(data).map(([_, p]) =>
+                  `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'}</li>`).join("") + "</ul>"
+              : "<i>No approved players yet.</i>"
+          }
+        </div>
+      `;
+      container.innerHTML += html;
+    });
+
+    // Pending players (DM only)
+    if (role === "DM") {
+      onValue(pendingRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        let html = `
+          <div style="margin-top: 20px;">
+            <h3>⏳ Pending Players</h3>
+            ${
+              Object.keys(data).length
+                ? "<ul>" + Object.entries(data).map(([id, p]) =>
+                    `<li><strong>${p.name}</strong>: Ready At ${p.readyAt}, Wait Until ${p.waitUntil}
+                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
+                    </li>`).join("") + "</ul>"
+                : "<i>No pending players.</i>"
+            }
+          </div>
+        `;
+        container.innerHTML += html;
+      });
+    }
   });
+}
+
 
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
   const pendingRef = ref(db, `sessions/${name}/pendingPlayers`);
