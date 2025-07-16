@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("Using latest2 na build");
+console.log("debug build");
 
 let nickname = "";
 let userId = "";
@@ -46,52 +46,59 @@ async function getUserInfoFromDiscord(token) {
 }
 
 async function autoJoinAndViewSession(sessionName) {
+  console.log(`[DEBUG] autoJoinAndViewSession() called for session: '${sessionName}'`);
   const { db, ref, get, set } = window.dndApp;
 
   const sessionRef = ref(db, `sessions/${sessionName}`);
   const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${userId}`);
   const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${userId}`);
 
-  // Check if session exists
+  console.log("[DEBUG] Checking if session exists in Firebase...");
   const sessionSnap = await get(sessionRef);
   if (!sessionSnap.exists()) {
+    console.warn(`[DEBUG] Session '${sessionName}' does not exist.`);
     alert(`Session '${sessionName}' does not exist.`);
     return;
   }
 
   if (!userId || !nickname) {
+    console.warn("[DEBUG] Missing userId or nickname. Cannot proceed.");
     alert("Login not complete. Please try again.");
-    console.warn("❌ Missing userId or nickname. autoJoinAndViewSession aborted.");
     return;
   }
 
   const session = sessionSnap.val();
+  console.log("[DEBUG] Session data loaded:", session);
 
   if (session.sessionLocked) {
+    console.warn("[DEBUG] Session is locked. Cannot join.");
     alert("This session is locked. No new players can join.");
     return;
   }
 
-  // Check if already approved
   if ((await get(approvedRef)).exists()) {
-    // Already approved - just view session
+    console.log("[DEBUG] User already approved. Viewing session.");
     viewSession(sessionName, "Player");
     return;
   }
 
-  // Check if already pending
   if ((await get(pendingRef)).exists()) {
+    console.log("[DEBUG] User is already pending. Viewing session.");
     alert("You already requested to join. Waiting for DM approval.");
     viewSession(sessionName, "Pending");
     return;
   }
 
-  // Prompt times like normal join flow
+  console.log("[DEBUG] User not found in approved or pending. Prompting for readiness...");
+
   const readyAt = prompt("What time are you ready? (HH:MM)");
   const waitUntil = prompt("How long will you wait? (HH:MM)");
-  if (!readyAt || !waitUntil) return;
+  if (!readyAt || !waitUntil) {
+    console.warn("[DEBUG] User cancelled readiness prompts.");
+    return;
+  }
 
-  const jesterWarning = `🎭 Ahem! By joining this noble quest, you swear upon the sacred dice 🐉:\n\n"Those who join **must** honor the session time. Tardiness shall be punished with a **100 gold penalty**, to be split among those valiant adventurers already present in the call!"\n\nNo excuses! Not even a dragon attack. 🐲`;
+  console.log(`[DEBUG] Submitting join request with readyAt: ${readyAt}, waitUntil: ${waitUntil}`);
 
   await set(pendingRef, {
     name: nickname,
@@ -102,20 +109,33 @@ async function autoJoinAndViewSession(sessionName) {
   sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
   alert("Join request sent. Waiting for DM approval.\n\n" + jesterWarning);
 
-  // After join, show pending session view
   viewSession(sessionName, "Pending");
 }
 
+
 async function handleDiscordLogin() {
   const hash = window.location.hash;
-  if (!hash.includes("access_token")) return null;
+  if (!hash.includes("access_token")) {
+    console.log("[DEBUG] No access token found in hash.");
+    return null;
+  }
 
   const params = new URLSearchParams(hash.slice(1));
   const token = params.get("access_token");
-  if (!token) return null;
+  if (!token) {
+    console.warn("[DEBUG] Token not found in hash params.");
+    return null;
+  }
+
+  console.log("[DEBUG] Found Discord token, attempting to fetch user info...");
 
   const user = await getUserInfoFromDiscord(token);
-  if (!user?.id) return null;
+  if (!user?.id) {
+    console.warn("[DEBUG] User info fetch failed or returned incomplete data:", user);
+    return null;
+  }
+
+  console.log("[DEBUG] Successfully fetched user info:", user);
 
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
@@ -512,24 +532,25 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
-  // 👇 EARLY: always store ?join if it's there
+  console.log("[DEBUG] Page loaded. Checking URL and localStorage for join info...");
   const params = new URLSearchParams(window.location.search);
   let joinName = params.get("join");
+
   if (joinName) {
+    console.log(`[DEBUG] Found join param in URL: ${joinName}`);
     localStorage.setItem("pendingJoin", joinName);
-    console.log("[DEBUG] Early join param saved to localStorage:", joinName);
   }
 
-  // Restore join param from localStorage (if redirected from Discord)
   if (!joinName) {
     joinName = localStorage.getItem("pendingJoin");
-    if (joinName) console.log("[DEBUG] Restored joinName from localStorage:", joinName);
+    if (joinName) console.log(`[DEBUG] Restored join param from localStorage: ${joinName}`);
     localStorage.removeItem("pendingJoin");
   }
 
   const userInfo = await handleDiscordLogin();
 
   if (userInfo) {
+    console.log(`[DEBUG] User info loaded:`, userInfo);
     userId = userInfo.userId;
     nickname = userInfo.nickname;
 
@@ -540,20 +561,25 @@ window.onload = async () => {
 
     document.getElementById("discord-login").classList.add("hidden");
     document.getElementById("dashboard-section").classList.remove("hidden");
+  } else {
+    console.log("[DEBUG] No user info found. User not logged in.");
   }
 
   if (joinName && userId) {
-    console.log("[DEBUG] Auto-joining session:", joinName);
+    console.log(`[DEBUG] Attempting auto-join with session '${joinName}' for user '${userId}'`);
     await autoJoinAndViewSession(joinName.toLowerCase());
     return;
   }
 
   if (userInfo) {
+    console.log("[DEBUG] Loading user sessions...");
     loadUserSessions();
   }
 
+  console.log("[DEBUG] Cleaning URL to remove tokens/join params");
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
