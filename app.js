@@ -69,11 +69,28 @@ function createSession() {
         const message = getJesterCreateMessage(name, userId);
         sendDiscordNotification(message);
         alert(`Session '${name}' created.`);
+
+        // 👉 Generate and show the invite link
+        const inviteLink = `${window.location.origin}${window.location.pathname}?join=${name}`;
+        const sessionList = document.getElementById("session-list");
+        const inviteDiv = document.createElement("div");
+        inviteDiv.innerHTML = `
+          <p><strong>Invite Link:</strong></p>
+          <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Link copied!'))">
+            📋 Copy Invite Link
+          </button>
+          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">
+            🔗 Open Invite Link
+          </a>
+        `;
+        sessionList.prepend(inviteDiv);
+
         loadUserSessions();
       });
     }
   });
 }
+
 
 function joinSession() {
   const name = document.getElementById("session-id-input").value.trim().toLowerCase();
