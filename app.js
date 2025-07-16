@@ -102,14 +102,14 @@ async function autoJoinAndViewSession(sessionName) {
 
 async function handleDiscordLogin() {
   const hash = window.location.hash;
-  if (!hash.includes("access_token")) return;
+  if (!hash.includes("access_token")) return null; // << return null
 
   const params = new URLSearchParams(hash.slice(1));
   const token = params.get("access_token");
-  if (!token) return;
+  if (!token) return null;
 
   const user = await getUserInfoFromDiscord(token);
-  if (!user?.id) return;
+  if (!user?.id) return null;
 
   nickname = `${user.username}#${user.discriminator}`;
   userId = user.id;
@@ -122,17 +122,9 @@ async function handleDiscordLogin() {
   document.getElementById("discord-login").classList.add("hidden");
   document.getElementById("dashboard-section").classList.remove("hidden");
 
-  // Load sessions as normal
-  loadUserSessions();
-
-  // Check if URL has ?join=some-session
-  const urlParams = new URLSearchParams(window.location.search);
-  const joinSessionName = urlParams.get("join");
-  if (joinSessionName) {
-    // Auto join and view that session after login
-    await autoJoinAndViewSession(joinSessionName.toLowerCase());
-  }
+  return { userId, nickname }; // << return this
 }
+
 
 function createSession() {
   const rawName = prompt("Name your session (e.g. 'curse-of-strahd')");
@@ -516,19 +508,26 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
-  await handleDiscordLogin();
+  const userInfo = await handleDiscordLogin();
 
   const params = new URLSearchParams(window.location.search);
   const joinName = params.get("join");
 
-  // If user just logged in and autoJoinAndViewSession ran, no need to call joinSession() again
-  if (!joinName || !userId) {
+  if (userInfo) {
+    userId = userInfo.userId;
+    nickname = userInfo.nickname;
+  }
+
+  if (joinName && userId) {
+    await autoJoinAndViewSession(joinName.toLowerCase());
+  } else {
     loadUserSessions();
   }
 
-  // Remove join param from URL regardless
   window.history.replaceState({}, document.title, window.location.pathname);
 };
+
+
 
 window.loginWithDiscord = loginWithDiscord;
 window.createSession = createSession;
