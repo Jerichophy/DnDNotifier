@@ -66,6 +66,8 @@ function createSession() {
         dm: { username: nickname, id: userId },
         sessionLocked: false
       }).then(() => {
+        const message = getJesterCreateMessage(name, userId);
+        sendDiscordNotification(message);
         alert(`Session '${name}' created.`);
         loadUserSessions();
       });
@@ -191,6 +193,17 @@ function unlockSession(name) {
     alert("Session unlocked.");
     viewSession(name, "DM");
   });
+}
+
+function getJesterCreateMessage(sessionName, dmId) {
+  const dmMention = `<@${dmId}>`;
+  const messages = [
+    `✨ A new adventure has begun! **'${sessionName}'** was just conjured into existence by ${dmMention}! Sharpen your swords! 🗡️`,
+    `📜 Behold! A fresh session called **'${sessionName}'** is now open. ${dmMention} is calling all heroes (and maybe one goblin)!`,
+    `🧙‍♂️ *A portal opens...* Welcome to **'${sessionName}'**, created by the mighty ${dmMention}! Ready your spells and snacks!`,
+    `🎲 Ding ding! ${dmMention} just launched a new session: **'${sessionName}'**! Who's brave enough to join?`
+  ];
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 function getJesterLockMessage(sessionName, time, dmId, playerIds) {
