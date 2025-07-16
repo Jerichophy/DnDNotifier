@@ -1,5 +1,5 @@
 const webhookUrl = "https://discord.com/api/webhooks/1394696085494169690/7ZOhUsbaArmsYVsRD6U9FUXSNK5k69KZSJ874-ldmEB_mmdwu0e5nXXoqQSTsLI9FUlu";
-console.log("debug newround3 build");
+console.log("debug newround4 build");
 
 let nickname = "";
 let userId = "";
@@ -510,8 +510,12 @@ function viewSession(name, role) {
           <h3>✅ Approved Players</h3>
           ${
             Object.keys(data).length
-              ? "<ul>" + Object.entries(data).map(([_, p]) =>
-                  `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'}</li>`).join("") + "</ul>"
+              ? "<ul>" + Object.entries(data).map(([id, p]) => {
+                  const isSelf = id === userId;
+                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || 'Not set'}, Wait Until ${p.waitUntil || 'Not set'} 
+                    ${isSelf ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                  </li>`;
+                }).join("") + "</ul>"
               : "<i>No approved players yet.</i>"
           }
         </div>
@@ -540,6 +544,33 @@ function viewSession(name, role) {
         container.innerHTML += html;
       });
     }
+  });
+}
+
+function editAvailability(sessionName, playerId) {
+  const { db, ref, get, set } = window.dndApp;
+  const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+
+  get(approvedRef).then((snap) => {
+    if (!snap.exists()) return;
+
+    const player = snap.val();
+    const readyAt = prompt("Update: What time are you ready? (HH:MM)", player.readyAt || "");
+    const waitUntil = prompt("Update: How long will you wait? (HH:MM)", player.waitUntil || "");
+
+    if (!readyAt || !waitUntil) {
+      alert("Update canceled.");
+      return;
+    }
+
+    set(approvedRef, {
+      ...player,
+      readyAt,
+      waitUntil
+    }).then(() => {
+      sendDiscordNotification(`✏️ ${player.name} updated their availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
+      alert("Availability updated!");
+    });
   });
 }
 
