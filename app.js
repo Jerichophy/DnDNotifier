@@ -270,41 +270,53 @@ function lockSession(name) {
   const { db, ref, get, update } = window.dndApp;
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
 
-  get(approvedRef).then((snapshot) => {
-    const players = snapshot.val();
-    if (!players) {
-      alert("No approved players to calculate start time.");
-      return;
-    }
-
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const allAvailability = Object.values(players).map(p => p.availability);
-
-    let matchedDayTime = null;
-
-    for (const day of days) {
-      const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
-      if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
-
-      // Convert time strings to minutes since midnight
-      function toMinutes(t) {
-        const [h, m] = t.split(":").map(Number);
-        return h * 60 + m;
-      }
-
-      // Normalize overnight ranges: if end < start, treat end as next day
       const normalizedSlots = dailySlots.map(({ start, end }) => {
-        let startMin = toMinutes(start);
-        let endMin = toMinutes(end);
-        if (endMin < startMin) endMin += 24 * 60;
-        return { startMin, endMin, start, end };
-      });
+            onValue(approvedRef, (snapshot) => {
+                const data = snapshot.val() || {};
+                let html = `
+                    <div style="margin-top: 20px;">
+                        <h3>✅ Approved Players</h3>
+                        ${
+                            Object.keys(data).length
+                                ? "<ul>" +
+                                    Object.entries(data).map(([id, p]) => {
+                                        const isSelf = id === userId;
+                                        const canEdit = isSelf && !session.sessionLocked;
+                                        let controls = "";
+                                        if (canEdit) controls += `<br><button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>`;
+                                        if (role === "DM" && id !== session.dm.id) controls += `<br><button onclick="kickPlayer('${name}', '${id}', '${p.name}')">🚪 Kick</button>`;
+                                        return `<li><strong>${p.name}</strong><br>
+                                            ${formatAvailability(p.availability)}
+                                            ${controls}
+                                        </li>`;
+                                    }).join("") +
+                                    "</ul>"
+                                : "<i>No approved players yet.</i>"
+                        }
+                    </div>
+                `;
+                const oldApproved = container.querySelector("#approved-players-section");
+                if (oldApproved) oldApproved.remove();
 
+                const approvedWrapper = document.createElement("div");
+                approvedWrapper.id = "approved-players-section";
+                approvedWrapper.innerHTML = html;
+                container.appendChild(approvedWrapper);
       // Find the latest start and earliest end
       const latestStartMin = Math.max(...normalizedSlots.map(s => s.startMin));
       const earliestEndMin = Math.min(...normalizedSlots.map(s => s.endMin));
 
       // Only valid if latestStartMin <= earliestEndMin
+function kickPlayer(sessionName, playerId, playerName) {
+    const { db, ref, set } = window.dndApp;
+    if (!confirm(`Are you sure you want to kick ${playerName} from this session?`)) return;
+    const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+    set(approvedRef, null).then(() => {
+        sendDiscordNotification(`🚪 ${playerName} was kicked from session '${sessionName}' by the DM.`);
+        alert(`${playerName} has been removed from the session.`);
+        viewSession(sessionName, "DM");
+    });
+}
       if (latestStartMin <= earliestEndMin) {
         // Convert latestStartMin back to HH:mm (modulo 24h)
         const startHour = Math.floor((latestStartMin % (24 * 60)) / 60);
@@ -749,7 +761,7 @@ function savePendingAvailability(sessionName, playerId) {
     name: nickname,
     availability
   }).then(() => {
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
     alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
