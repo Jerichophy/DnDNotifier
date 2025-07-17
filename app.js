@@ -237,18 +237,8 @@ function joinSession(sessionNameFromLink) {
           return;
         }
 
-        // ✅ Auto-join if from invite link
-        if (window._triggeredByJoinClick) {
-          set(pendingRef, {
-            name: window.userName,
-            avatar: window.userAvatar,
-          }).then(() => {
-            viewSession(name, "Player");
-          });
-        } else {
-          // ✅ Manual join: show modal
-          openAvailabilityModal(name, userId, "", "", "pending");
-        }
+        // Always show modal for new joiners so they can pick their days/times
+        openAvailabilityModal(name, userId, "", "", "pending");
       });
     });
   });
