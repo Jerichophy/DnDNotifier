@@ -94,7 +94,15 @@
       <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
     </form>
   </div>
-
+  
+  <script>
+    // Toggle day selection
+    document.querySelectorAll(".day-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("active");
+      });
+    });
+  </script>
   <!-- JS Logic -->
   <script type="module" src="app.js"></script>
 </body>
