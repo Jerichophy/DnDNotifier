@@ -744,6 +744,14 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
+
+  // Attach day button click handlers after DOM is ready
+  document.querySelectorAll(".day-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      btn.classList.toggle("active");
+    });
+  });
+
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
@@ -777,7 +785,6 @@ window.onload = async () => {
     loadUserSessions();
   });
 
-
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
 
   const params = new URLSearchParams(window.location.search);
@@ -789,7 +796,6 @@ window.onload = async () => {
     console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
-
 
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
