@@ -544,7 +544,7 @@ function viewSession(name, role) {
                   let controls = "";
                   if (canEdit) controls += `<button style='margin-left:8px;' onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
                   // DM can kick any approved player except themselves
-                  if (role === "DM" && id !== session.dm.id) controls += `<button style='margin-left:8px;' onclick=\"window.kickPlayer('${name}', '${id}', \"${p.name.replace(/"/g, '&quot;')}\")\">🚪 Kick</button>`;
+                  if (role === "DM" && id !== session.dm.id) controls += `<button style='margin-left:8px;' onclick=\"window.kickPlayer('${name}', '${id}', '${p.name.replace(/'/g, "&#39;").replace(/"/g, '&quot;')}')\">🚪 Kick</button>`;
                   return `<li style='display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;'><span><strong>${p.name}</strong><br>${formatAvailability(p.availability)}</span><span>${controls}</span></li>`;
                 }).join("") +
                 "</ul>"
@@ -560,7 +560,43 @@ function viewSession(name, role) {
       approvedWrapper.innerHTML = html;
       container.appendChild(approvedWrapper);
     });
-// DM can kick approved players
+
+    // ⏳ Pending players list
+    onValue(pendingRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      if (role === "DM") {
+        let html = `
+          <div style="margin-top: 20px;">
+            <h3>⏳ Pending Players</h3>
+            ${
+              Object.keys(data).length
+                ? "<ul>" +
+                  Object.entries(data).map(([id, p]) => {
+                    return `<li><strong>${p.name}</strong><br>
+                      ${formatAvailability(p.availability)}
+                      <br><button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
+                    </li>`;
+                  }).join("") +
+                  "</ul>"
+                : "<i>No pending players.</i>"
+            }
+          </div>
+        `;
+        const oldPending = container.querySelector("#pending-players-section");
+        if (oldPending) oldPending.remove();
+
+        const pendingWrapper = document.createElement("div");
+        pendingWrapper.id = "pending-players-section";
+        pendingWrapper.innerHTML = html;
+        container.appendChild(pendingWrapper);
+      }
+    });
+  }).catch((err) => {
+    console.error("🔥 Failed to load session data:", err);
+  });
+}
+
 function kickPlayer(sessionName, playerId, playerName) {
   const { db, ref, set } = window.dndApp;
   if (!confirm(`Are you sure you want to kick ${playerName} from this session?`)) return;
@@ -574,7 +610,6 @@ function kickPlayer(sessionName, playerId, playerName) {
 
 // Ensure kickPlayer is globally accessible for inline onclick
 window.kickPlayer = kickPlayer;
-}
 
     // ⏳ Pending players list
     onValue(pendingRef, (snapshot) => {
