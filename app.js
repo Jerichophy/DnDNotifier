@@ -660,15 +660,21 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
   document.getElementById("modal-player-id").value = playerId;
   document.getElementById("modal-context").value = role;
 
-  // Attach day button click handlers every time modal opens (robust)
-  document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.onclick = function() {
-      btn.classList.toggle("active");
-    };
-  });
+  // Attach day button click handler using event delegation (robust for dynamic content)
+  // Use the existing modal variable if already declared above
+  // (If not, declare it here)
+  const modal = document.getElementById("availability-modal");
+  if (!modal._dayBtnDelegationAttached) {
+    modal.addEventListener("click", function(e) {
+      if (e.target.classList.contains("day-btn")) {
+        e.target.classList.toggle("active");
+      }
+    });
+    modal._dayBtnDelegationAttached = true;
+  }
 
   // Add Jester-style warning message
-  const modal = document.getElementById("availability-modal");
+  // modal already declared above
   let jesterWarning = document.getElementById("jester-warning");
   if (jesterWarning) jesterWarning.remove();
   jesterWarning = document.createElement("div");
