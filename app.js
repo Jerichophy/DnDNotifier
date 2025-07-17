@@ -677,17 +677,18 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
   document.getElementById("modal-context").value = role;
 
   // Attach day button click handler using event delegation (robust for dynamic content)
-  // Use the existing modal variable if already declared above
-  // (If not, declare it here)
   const modal = document.getElementById("availability-modal");
-  if (!modal._dayBtnDelegationAttached) {
-    modal.addEventListener("click", function(e) {
-      if (e.target.classList.contains("day-btn")) {
-        e.target.classList.toggle("active");
-      }
-    });
-    modal._dayBtnDelegationAttached = true;
+  // Remove any previous event listener to avoid duplicate toggling
+  if (modal._dayBtnDelegationHandler) {
+    modal.removeEventListener("click", modal._dayBtnDelegationHandler);
   }
+  modal._dayBtnDelegationHandler = function(e) {
+    // Only toggle if the button is inside the day-selector
+    if (e.target.classList.contains("day-btn") && e.target.parentElement.id === "day-selector") {
+      e.target.classList.toggle("active");
+    }
+  };
+  modal.addEventListener("click", modal._dayBtnDelegationHandler);
 
   // Add Jester-style warning message
   // modal already declared above
