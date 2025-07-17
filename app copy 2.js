@@ -269,34 +269,39 @@ function rejectPlayer(name, id) {
 function lockSession(name) {
   const { db, ref, get, update } = window.dndApp;
   const approvedRef = ref(db, `sessions/${name}/approvedPlayers`);
-
   get(approvedRef).then((snapshot) => {
-    const players = snapshot.val();
-    if (!players) {
-      alert("No approved players to calculate start time.");
+    const players = snapshot.val() || {};
+    const allAvailability = Object.values(players).map(p => p.availability).filter(Boolean);
+    if (!allAvailability.length) {
+      alert("No approved players with availability.");
       return;
     }
-
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const allAvailability = Object.values(players).map(p => p.availability);
-
     let matchedDayTime = null;
-
     for (const day of days) {
       const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
-      if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
-
-      // Find the latest start and earliest waitUntil (end) for all players
-      const latestStart = dailySlots.reduce((latest, t) => latest > t.start ? latest : t.start, "00:00");
-      const earliestWaitUntil = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
-
-      // Only valid if latestStart <= earliestWaitUntil
-      if (latestStart <= earliestWaitUntil) {
-        matchedDayTime = { day, start: latestStart };
+      if (dailySlots.length !== allAvailability.length) continue;
+      function toMinutes(t) {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+      const normalizedSlots = dailySlots.map(({ start, end }) => {
+        let startMin = toMinutes(start);
+        let endMin = toMinutes(end);
+        if (endMin < startMin) endMin += 24 * 60;
+        return { startMin, endMin, start, end };
+      });
+      const latestStartMin = Math.max(...normalizedSlots.map(s => s.startMin));
+      const earliestEndMin = Math.min(...normalizedSlots.map(s => s.endMin));
+      if (latestStartMin <= earliestEndMin) {
+        const startHour = Math.floor((latestStartMin % (24 * 60)) / 60);
+        const startMin = latestStartMin % 60;
+        const pad = n => n.toString().padStart(2, "0");
+        const startStr = `${pad(startHour)}:${pad(startMin)}`;
+        matchedDayTime = { day, start: startStr };
         break;
       }
     }
-
     if (!matchedDayTime) {
       const jesterConflictMessages = [
         `🎨 *Nyehehe~!* No one picked the same time and day! Try again, my cupcakes! 🧁✨`,
@@ -307,7 +312,6 @@ function lockSession(name) {
       alert("No overlapping day/time found.");
       return;
     }
-
     update(ref(db, `sessions/${name}`), {
       sessionLocked: true,
       sessionStartTime: `${matchedDayTime.day} ${matchedDayTime.start}`
@@ -317,11 +321,9 @@ function lockSession(name) {
         const message = getJesterLockMessage(name, `${matchedDayTime.day} ${matchedDayTime.start}`, session.dm.id, Object.keys(players));
         sendDiscordNotification(message);
       });
-
       alert(`✅ Session locked for ${matchedDayTime.day} at ${matchedDayTime.start}`);
       viewSession(name, "DM");
     });
-
   }).catch((err) => {
     console.error("[lockSession] Error loading approved players:", err);
     alert("Failed to lock session. Please try again.");
@@ -481,7 +483,6 @@ function viewSession(name, role) {
           <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
             📋 Copy Invite Link
           </button>
-          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">🔗 Open Invite Link</a>
         </div>
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>🛠️ Session Controls</h3>
@@ -540,9 +541,13 @@ function viewSession(name, role) {
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
+                  let controls = "";
+                  if (canEdit) controls += `<br><button onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
+                  // DM can kick any approved player except themselves
+                  if (role === "DM" && id !== session.dm.id) controls += `<br><button onclick=\"kickPlayer('${name}', '${id}', '${p.name}')\">🚪 Kick</button>`;
                   return `<li><strong>${p.name}</strong><br>
                     ${formatAvailability(p.availability)}
-                    ${canEdit ? `<br><button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                    ${controls}
                   </li>`;
                 }).join("") +
                 "</ul>"
@@ -558,6 +563,17 @@ function viewSession(name, role) {
       approvedWrapper.innerHTML = html;
       container.appendChild(approvedWrapper);
     });
+// DM can kick approved players
+function kickPlayer(sessionName, playerId, playerName) {
+  const { db, ref, set } = window.dndApp;
+  if (!confirm(`Are you sure you want to kick ${playerName} from this session?`)) return;
+  const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+  set(approvedRef, null).then(() => {
+    sendDiscordNotification(`🚪 ${playerName} was kicked from session '${sessionName}' by the DM.`);
+    alert(`${playerName} has been removed from the session.`);
+    viewSession(sessionName, "DM");
+  });
+}
 
     // ⏳ Pending players list
     onValue(pendingRef, (snapshot) => {
@@ -650,28 +666,29 @@ function loadUserSessions() {
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
   document.getElementById("availability-modal").classList.remove("hidden");
 
-  const readyInput = document.getElementById("readyAt");
-  const waitInput = document.getElementById("waitUntil");
+  // Fix: Use correct input IDs for time fields
+  const startInput = document.getElementById("start-time");
+  const endInput = document.getElementById("end-time");
 
-  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
-  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+  if (currentReadyAt) startInput.value = currentReadyAt;
+  if (currentWaitUntil) endInput.value = currentWaitUntil;
 
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
   document.getElementById("modal-context").value = role;
 
   // Attach day button click handler using event delegation (robust for dynamic content)
-  // Use the existing modal variable if already declared above
-  // (If not, declare it here)
   const modal = document.getElementById("availability-modal");
-  if (!modal._dayBtnDelegationAttached) {
-    modal.addEventListener("click", function(e) {
-      if (e.target.classList.contains("day-btn")) {
-        e.target.classList.toggle("active");
-      }
-    });
-    modal._dayBtnDelegationAttached = true;
+  // Remove any previous event listener to avoid duplicate toggling
+  if (modal._dayBtnDelegationHandler) {
+    modal.removeEventListener("click", modal._dayBtnDelegationHandler);
   }
+  modal._dayBtnDelegationHandler = function(e) {
+    if (e.target.classList.contains("day-btn")) {
+      e.target.classList.toggle("active");
+    }
+  };
+  modal.addEventListener("click", modal._dayBtnDelegationHandler);
 
   // Add Jester-style warning message
   // modal already declared above
@@ -731,7 +748,7 @@ function savePendingAvailability(sessionName, playerId) {
     name: nickname,
     availability
   }).then(() => {
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
     alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
@@ -768,17 +785,13 @@ window.onload = async () => {
 
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-
+    // Save availability for pending or approved player
     const sessionName = document.getElementById("modal-session-name").value;
     const playerId = document.getElementById("modal-player-id").value;
-    const context = document.getElementById("modal-context").value || "approved";
-
-    // Get selected days and time range
-    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
-      .map(btn => btn.dataset.day);
+    const role = document.getElementById("modal-context").value;
+    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active")).map(btn => btn.dataset.day);
     const start = document.getElementById("start-time").value;
     const end = document.getElementById("end-time").value;
-
     if (selectedDays.length === 0) {
       alert("Please select at least one day.");
       return;
@@ -787,24 +800,34 @@ window.onload = async () => {
       alert("Please provide a valid time range.");
       return;
     }
-
     const availability = {};
     selectedDays.forEach(day => {
       availability[day] = { start, end };
     });
-
     const { db, ref, set } = window.dndApp;
-    const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
-
-    await set(pendingRef, {
-      name: nickname,
-      availability
-    });
-
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
-    alert("Availability saved. Waiting for DM approval.");
-    closeAvailabilityModal();
-    loadUserSessions();
+    if (role === "pending") {
+      const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+      set(pendingRef, {
+        name: nickname,
+        availability
+      }).then(() => {
+        sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
+        alert("Availability saved. Waiting for DM approval.");
+        closeAvailabilityModal();
+        loadUserSessions();
+      });
+    } else {
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+      set(approvedRef, {
+        name: nickname,
+        availability
+      }).then(() => {
+        sendDiscordNotification(`✏️ ${nickname} updated their availability for '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
+        alert("Availability updated.");
+        closeAvailabilityModal();
+        loadUserSessions();
+      });
+    }
   });
 
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
@@ -822,9 +845,7 @@ window.onload = async () => {
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
   if (!userInfo) {
-    if (joinName) {
-      localStorage.setItem("pendingJoin", joinName); // Retry after auth
-    }
+    // Immediately trigger Discord OAuth if not logged in
     loginWithDiscord();
     return;
   }

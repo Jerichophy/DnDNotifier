@@ -57,7 +57,7 @@
   </div>
 
   <!-- AVAILABILITY MODAL -->
-  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px;">
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px; max-height: 80vh; overflow-y: auto; touch-action: auto;">
     <h3>Set Your Availability</h3>
     <form id="availability-form">
 
@@ -76,11 +76,18 @@
         </div>
       </div>
 
-      <div style="margin-bottom: 10px;">
-        <label for="start-time">Start Time:</label>
-        <input type="time" id="start-time" required style="width: 45%;" />
-        <label for="end-time" style="margin-left: 10px;">End Time:</label>
-        <input type="time" id="end-time" required style="width: 45%;" />
+      <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="start-time" style="min-width: 80px;">Start Time:</label>
+          <input type="time" id="start-time" required style="flex: 1;" />
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="end-time" style="min-width: 80px;">Until Time:</label>
+          <input type="time" id="end-time" required style="flex: 1;" />
+        </div>
+        <small style="color: #555; margin-top: 2px;">
+          This is the latest magical time you're willing to wait for the game to start!
+        </small>
       </div>
 
 
@@ -98,5 +105,22 @@
   <!-- Removed inline script for day button toggling; now handled in app.js via event delegation -->
   <!-- JS Logic -->
   <script type="module" src="app.js"></script>
+  <script>
+    // Prevent background scrolling when modal is open, allow modal to scroll on mobile
+    window.addEventListener('DOMContentLoaded', function() {
+      const modal = document.getElementById('availability-modal');
+      const body = document.body;
+      const observer = new MutationObserver(() => {
+        if (!modal.classList.contains('hidden')) {
+          body.style.overflow = 'hidden';
+          body.style.touchAction = 'none';
+        } else {
+          body.style.overflow = '';
+          body.style.touchAction = '';
+        }
+      });
+      observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    });
+  </script>
 </body>
 </html>
