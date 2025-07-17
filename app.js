@@ -757,30 +757,38 @@ window.onload = async () => {
 
     const sessionName = document.getElementById("modal-session-name").value;
     const playerId = document.getElementById("modal-player-id").value;
-    const readyHTML = document.getElementById("readyAt").value;
-    const waitHTML = document.getElementById("waitUntil").value;
     const context = document.getElementById("modal-context").value || "approved";
 
-    const readyAt = fromHTMLDatetime(readyHTML);
-    const waitUntil = fromHTMLDatetime(waitHTML);
+    // Get selected days and time range
+    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
+      .map(btn => btn.dataset.day);
+    const start = document.getElementById("start-time").value;
+    const end = document.getElementById("end-time").value;
 
-    const { db, ref, set, get } = window.dndApp;
-    const playerRef = ref(db, `sessions/${sessionName}/${context === "pending" ? "pendingPlayers" : "approvedPlayers"}/${playerId}`);
+    if (selectedDays.length === 0) {
+      alert("Please select at least one day.");
+      return;
+    }
+    if (!start || !end) {
+      alert("Please provide a valid time range.");
+      return;
+    }
 
-    // ✅ We don't check if they already exist — just set it directly.
-    await set(playerRef, {
-      name: nickname,
-      readyAt,
-      waitUntil
+    const availability = {};
+    selectedDays.forEach(day => {
+      availability[day] = { start, end };
     });
 
-    const message =
-      context === "pending"
-        ? `🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
-        : `✏️ ${nickname} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
+    const { db, ref, set } = window.dndApp;
+    const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
 
-    sendDiscordNotification(message);
-    alert(context === "pending" ? "Join request sent. Waiting for DM approval." : "Availability updated!");
+    await set(pendingRef, {
+      name: nickname,
+      availability
+    });
+
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
   });
