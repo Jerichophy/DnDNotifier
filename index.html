@@ -64,14 +64,25 @@
       <p>Please select the exact date & time ranges you are available for each day:</p>
 
       <div style="margin-bottom: 10px;">
-        <label for="readyAt">Ready At:</label><br />
-        <input type="datetime-local" id="readyAt" name="readyAt" required style="width: 100%;" />
+        <label>Select available days:</label><br />
+        <div id="day-selector" style="display: flex; flex-wrap: wrap; gap: 5px;">
+          <button type="button" class="day-btn" data-day="Monday">Mon</button>
+          <button type="button" class="day-btn" data-day="Tuesday">Tue</button>
+          <button type="button" class="day-btn" data-day="Wednesday">Wed</button>
+          <button type="button" class="day-btn" data-day="Thursday">Thu</button>
+          <button type="button" class="day-btn" data-day="Friday">Fri</button>
+          <button type="button" class="day-btn" data-day="Saturday">Sat</button>
+          <button type="button" class="day-btn" data-day="Sunday">Sun</button>
+        </div>
       </div>
 
       <div style="margin-bottom: 10px;">
-        <label for="waitUntil">Wait Until:</label><br />
-        <input type="datetime-local" id="waitUntil" name="waitUntil" required style="width: 100%;" />
+        <label for="start-time">Start Time:</label>
+        <input type="time" id="start-time" required style="width: 45%;" />
+        <label for="end-time" style="margin-left: 10px;">End Time:</label>
+        <input type="time" id="end-time" required style="width: 45%;" />
       </div>
+
 
       <!-- Hidden context for player role and session info -->
       <input type="hidden" id="modal-session-name" name="sessionName" />

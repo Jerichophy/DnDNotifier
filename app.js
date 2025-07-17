@@ -683,27 +683,36 @@ const observer = new MutationObserver(() => {
 observer.observe(modal, { attributes: true, attributeFilter: ["class"] });
 
 function savePendingAvailability(sessionName, playerId) {
-  const readyHTML = document.getElementById("readyAt").value;
-  const waitHTML = document.getElementById("waitUntil").value;
+  const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
+    .map(btn => btn.dataset.day);
 
-  const readyAt = fromHTMLDatetime(readyHTML);
-  const waitUntil = fromHTMLDatetime(waitHTML);
-
-  if (!readyAt || !waitUntil) {
-    alert("Both fields are required.");
+  if (selectedDays.length === 0) {
+    alert("Please select at least one day.");
     return;
   }
+
+  const start = document.getElementById("start-time").value;
+  const end = document.getElementById("end-time").value;
+
+  if (!start || !end) {
+    alert("Please provide a valid time range.");
+    return;
+  }
+
+  const availability = {};
+  selectedDays.forEach(day => {
+    availability[day] = { start, end };
+  });
 
   const { db, ref, set } = window.dndApp;
   const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
 
   set(pendingRef, {
     name: nickname,
-    readyAt,
-    waitUntil
+    availability
   }).then(() => {
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-    alert("Join request sent. Waiting for DM approval.\n\n🎭 By joining, you swear to honor the time. Tardiness = 100 gold penalty.");
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
   });
