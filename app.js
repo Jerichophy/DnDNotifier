@@ -660,13 +660,11 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
   document.getElementById("modal-player-id").value = playerId;
   document.getElementById("modal-context").value = role;
 
-  // Attach day button click handlers every time modal opens
+  // Attach day button click handlers every time modal opens (robust)
   document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.removeEventListener("click", btn._dayBtnHandler);
-    btn._dayBtnHandler = function() {
+    btn.onclick = function() {
       btn.classList.toggle("active");
     };
-    btn.addEventListener("click", btn._dayBtnHandler);
   });
 
   // Add Jester-style warning message
@@ -761,12 +759,6 @@ function backToDashboard() {
 
 window.onload = async () => {
 
-  // Attach day button click handlers after DOM is ready
-  document.querySelectorAll(".day-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      btn.classList.toggle("active");
-    });
-  });
 
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
