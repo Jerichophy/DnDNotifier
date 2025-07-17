@@ -541,9 +541,13 @@ function viewSession(name, role) {
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
+                  let controls = "";
+                  if (canEdit) controls += `<br><button onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
+                  // DM can kick any approved player except themselves
+                  if (role === "DM" && id !== session.dm.id) controls += `<br><button onclick=\"kickPlayer('${name}', '${id}', '${p.name}')\">🚪 Kick</button>`;
                   return `<li><strong>${p.name}</strong><br>
                     ${formatAvailability(p.availability)}
-                    ${canEdit ? `<br><button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                    ${controls}
                   </li>`;
                 }).join("") +
                 "</ul>"
@@ -559,6 +563,17 @@ function viewSession(name, role) {
       approvedWrapper.innerHTML = html;
       container.appendChild(approvedWrapper);
     });
+// DM can kick approved players
+function kickPlayer(sessionName, playerId, playerName) {
+  const { db, ref, set } = window.dndApp;
+  if (!confirm(`Are you sure you want to kick ${playerName} from this session?`)) return;
+  const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+  set(approvedRef, null).then(() => {
+    sendDiscordNotification(`🚪 ${playerName} was kicked from session '${sessionName}' by the DM.`);
+    alert(`${playerName} has been removed from the session.`);
+    viewSession(sessionName, "DM");
+  });
+}
 
     // ⏳ Pending players list
     onValue(pendingRef, (snapshot) => {
