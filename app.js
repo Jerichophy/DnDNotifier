@@ -537,18 +537,15 @@ function viewSession(name, role) {
           <h3>✅ Approved Players</h3>
           ${
             Object.keys(data).length
-              ? "<ul>" +
+              ? "<ul style='padding:0;'>" +
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
                   let controls = "";
-                  if (canEdit) controls += `<br><button onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
+                  if (canEdit) controls += `<button style='margin-left:8px;' onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
                   // DM can kick any approved player except themselves
-                  if (role === "DM" && id !== session.dm.id) controls += `<br><button onclick=\"kickPlayer('${name}', '${id}', '${p.name}')\">🚪 Kick</button>`;
-                  return `<li><strong>${p.name}</strong><br>
-                    ${formatAvailability(p.availability)}
-                    ${controls}
-                  </li>`;
+                  if (role === "DM" && id !== session.dm.id) controls += `<button style='margin-left:8px;' onclick=\"window.kickPlayer('${name}', '${id}', '${p.name}')\">🚪 Kick</button>`;
+                  return `<li style='display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;'><span><strong>${p.name}</strong><br>${formatAvailability(p.availability)}</span><span>${controls}</span></li>`;
                 }).join("") +
                 "</ul>"
               : "<i>No approved players yet.</i>"
@@ -573,6 +570,10 @@ function kickPlayer(sessionName, playerId, playerName) {
     alert(`${playerName} has been removed from the session.`);
     viewSession(sessionName, "DM");
   });
+}
+
+// Ensure kickPlayer is globally accessible for inline onclick
+window.kickPlayer = kickPlayer;
 }
 
     // ⏳ Pending players list
