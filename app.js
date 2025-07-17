@@ -666,11 +666,12 @@ function loadUserSessions() {
 function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", currentWaitUntil = "", role = "approved") {
   document.getElementById("availability-modal").classList.remove("hidden");
 
-  const readyInput = document.getElementById("readyAt");
-  const waitInput = document.getElementById("waitUntil");
+  // Fix: Use correct input IDs for time fields
+  const startInput = document.getElementById("start-time");
+  const endInput = document.getElementById("end-time");
 
-  if (currentReadyAt) readyInput.value = toHTMLDatetime(currentReadyAt);
-  if (currentWaitUntil) waitInput.value = toHTMLDatetime(currentWaitUntil);
+  if (currentReadyAt) startInput.value = currentReadyAt;
+  if (currentWaitUntil) endInput.value = currentWaitUntil;
 
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
@@ -683,8 +684,7 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
     modal.removeEventListener("click", modal._dayBtnDelegationHandler);
   }
   modal._dayBtnDelegationHandler = function(e) {
-    // Only toggle if the button is inside the day-selector
-    if (e.target.classList.contains("day-btn") && e.target.parentElement.id === "day-selector") {
+    if (e.target.classList.contains("day-btn")) {
       e.target.classList.toggle("active");
     }
   };
@@ -785,7 +785,49 @@ window.onload = async () => {
 
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    // ...existing code...
+    // Save availability for pending or approved player
+    const sessionName = document.getElementById("modal-session-name").value;
+    const playerId = document.getElementById("modal-player-id").value;
+    const role = document.getElementById("modal-context").value;
+    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active")).map(btn => btn.dataset.day);
+    const start = document.getElementById("start-time").value;
+    const end = document.getElementById("end-time").value;
+    if (selectedDays.length === 0) {
+      alert("Please select at least one day.");
+      return;
+    }
+    if (!start || !end) {
+      alert("Please provide a valid time range.");
+      return;
+    }
+    const availability = {};
+    selectedDays.forEach(day => {
+      availability[day] = { start, end };
+    });
+    const { db, ref, set } = window.dndApp;
+    if (role === "pending") {
+      const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
+      set(pendingRef, {
+        name: nickname,
+        availability
+      }).then(() => {
+        sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
+        alert("Availability saved. Waiting for DM approval.");
+        closeAvailabilityModal();
+        loadUserSessions();
+      });
+    } else {
+      const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
+      set(approvedRef, {
+        name: nickname,
+        availability
+      }).then(() => {
+        sendDiscordNotification(`✏️ ${nickname} updated their availability for '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} (earliest) until ${end} (latest time willing to wait for game to start)`);
+        alert("Availability updated.");
+        closeAvailabilityModal();
+        loadUserSessions();
+      });
+    }
   });
 
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
