@@ -294,14 +294,15 @@ function lockSession(name) {
 
     for (const day of days) {
       const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
-
       if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
 
+      // Find the latest start and earliest waitUntil (end) for all players
       const latestStart = dailySlots.reduce((latest, t) => latest > t.start ? latest : t.start, "00:00");
-      const earliestEnd = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
+      const earliestWaitUntil = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
 
-      if (latestStart < earliestEnd) {
-        matchedDayTime = { day, start: latestStart, end: earliestEnd };
+      // Only valid if latestStart <= earliestWaitUntil
+      if (latestStart <= earliestWaitUntil) {
+        matchedDayTime = { day, start: latestStart };
         break;
       }
     }
@@ -319,15 +320,15 @@ function lockSession(name) {
 
     update(ref(db, `sessions/${name}`), {
       sessionLocked: true,
-      sessionStartTime: `${matchedDayTime.day} ${matchedDayTime.start}–${matchedDayTime.end}`
+      sessionStartTime: `${matchedDayTime.day} ${matchedDayTime.start}`
     }).then(() => {
       get(ref(db, `sessions/${name}`)).then((sessionSnap) => {
         const session = sessionSnap.val();
-        const message = getJesterLockMessage(name, `${matchedDayTime.day} ${matchedDayTime.start}–${matchedDayTime.end}`, session.dm.id, Object.keys(players));
+        const message = getJesterLockMessage(name, `${matchedDayTime.day} ${matchedDayTime.start}`, session.dm.id, Object.keys(players));
         sendDiscordNotification(message);
       });
 
-      alert(`✅ Session locked for ${matchedDayTime.day} from ${matchedDayTime.start} to ${matchedDayTime.end}`);
+      alert(`✅ Session locked for ${matchedDayTime.day} at ${matchedDayTime.start}`);
       viewSession(name, "DM");
     });
 
