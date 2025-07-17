@@ -57,7 +57,7 @@
   </div>
 
   <!-- AVAILABILITY MODAL -->
-  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px;">
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px; max-height: 80vh; overflow-y: auto; touch-action: auto;">
     <h3>Set Your Availability</h3>
     <form id="availability-form">
 
@@ -105,5 +105,22 @@
   <!-- Removed inline script for day button toggling; now handled in app.js via event delegation -->
   <!-- JS Logic -->
   <script type="module" src="app.js"></script>
+  <script>
+    // Prevent background scrolling when modal is open, allow modal to scroll on mobile
+    window.addEventListener('DOMContentLoaded', function() {
+      const modal = document.getElementById('availability-modal');
+      const body = document.body;
+      const observer = new MutationObserver(() => {
+        if (!modal.classList.contains('hidden')) {
+          body.style.overflow = 'hidden';
+          body.style.touchAction = 'none';
+        } else {
+          body.style.overflow = '';
+          body.style.touchAction = '';
+        }
+      });
+      observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    });
+  </script>
 </body>
 </html>
