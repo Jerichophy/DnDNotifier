@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <meta charset="UTF-8" />
   <title>D&D Session Manager</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -56,25 +57,45 @@
   </div>
 
   <!-- AVAILABILITY MODAL -->
-  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000;">
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px;">
     <h3>Set Your Availability</h3>
     <form id="availability-form">
-      <label for="readyAt">Ready At:</label><br>
-      <input type="datetime-local" id="readyAt" name="readyAt" required><br><br>
 
-      <label for="waitUntil">Wait Until:</label><br>
-      <input type="datetime-local" id="waitUntil" name="waitUntil" required><br><br>
+      <p>Select the days you're available, then choose a time range that applies to all of them:</p>
+
+      <div style="margin-bottom: 10px;">
+        <label>Select available days:</label><br />
+        <div id="day-selector" style="display: flex; flex-wrap: wrap; gap: 5px;">
+          <button type="button" class="day-btn" data-day="Monday">Mon</button>
+          <button type="button" class="day-btn" data-day="Tuesday">Tue</button>
+          <button type="button" class="day-btn" data-day="Wednesday">Wed</button>
+          <button type="button" class="day-btn" data-day="Thursday">Thu</button>
+          <button type="button" class="day-btn" data-day="Friday">Fri</button>
+          <button type="button" class="day-btn" data-day="Saturday">Sat</button>
+          <button type="button" class="day-btn" data-day="Sunday">Sun</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <label for="start-time">Start Time:</label>
+        <input type="time" id="start-time" required style="width: 45%;" />
+        <label for="end-time" style="margin-left: 10px;">End Time:</label>
+        <input type="time" id="end-time" required style="width: 45%;" />
+      </div>
+
 
       <!-- Hidden context for player role and session info -->
       <input type="hidden" id="modal-session-name" name="sessionName" />
       <input type="hidden" id="modal-player-id" name="playerId" />
-      <input type="hidden" id="modal-context" name="context" /> <!-- ✅ Important! -->
+      <input type="hidden" id="modal-context" name="context" />
 
+      <br />
       <button type="submit">Save Availability</button>
       <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
     </form>
   </div>
 
+  <!-- Removed inline script for day button toggling; now handled in app.js via event delegation -->
   <!-- JS Logic -->
   <script type="module" src="app.js"></script>
 </body>

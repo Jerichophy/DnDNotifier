@@ -30,7 +30,6 @@ function loginWithDiscord() {
   window.location.href = discordAuthUrl;
 }
 
-
 async function getUserInfoFromDiscord(token) {
   try {
     const response = await fetch("https://discord.com/api/users/@me", {
@@ -111,7 +110,6 @@ async function autoJoinAndViewSession(sessionName) {
 
 }
 
-
 async function handleDiscordLogin() {
   const hash = window.location.hash;
   if (!hash.includes("access_token")) {
@@ -152,8 +150,6 @@ async function handleDiscordLogin() {
     discriminator: user.discriminator
   };
 }
-
-
 
 function createSession() {
   const rawName = prompt("Name your session (e.g. 'curse-of-strahd')");
@@ -241,24 +237,12 @@ function joinSession(sessionNameFromLink) {
           return;
         }
 
-        // ✅ Auto-join if from invite link
-        if (window._triggeredByJoinClick) {
-          set(pendingRef, {
-            name: window.userName,
-            avatar: window.userAvatar,
-          }).then(() => {
-            viewSession(name, "Player");
-          });
-        } else {
-          // ✅ Manual join: show modal
-          openAvailabilityModal(name, userId, "", "", "pending");
-        }
+        // Always show modal for new joiners so they can pick their days/times
+        openAvailabilityModal(name, userId, "", "", "pending");
       });
     });
   });
 }
-
-
 
 function approvePlayer(name, id) {
   const { db, ref, get, set } = window.dndApp;
@@ -293,45 +277,48 @@ function lockSession(name) {
       return;
     }
 
-    const allTimes = Object.values(players).filter(p => p.readyAt && p.waitUntil);
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const allAvailability = Object.values(players).map(p => p.availability);
 
-  if (allTimes.length === 0) {
-    const jesterConflictMessages = [
-      `🎨 *Nyehehe~!* I looked at your times and—oh no! No one wants to play at the same time! 💔\nTry again, okay? Maybe this time you'll align your stars or your clocks. 🕒🌟`,
-      `🖌️ *I painted a beautiful schedule... but then it exploded.* Boom! 🎆 No shared time for **'${name}'**. Try again, my sweet little muffins! 💙`,
-      `📜 *Sprinkle tried to schedule everyone but now he's crying.* 😭 There's no overlapping time for **'${name}'**. Fix it before he throws cookies at you! 🍪💥`
-    ];
-    sendDiscordNotification(jesterConflictMessages[Math.floor(Math.random() * jesterConflictMessages.length)]);
-    alert("No player availability to set session time.");
-    return;
-  }
+    let matchedDayTime = null;
 
-    // Get the latest readyAt among all players
-    const latestReadyAt = allTimes.reduce((latest, p) => {
-      return new Date(p.readyAt) > new Date(latest) ? p.readyAt : latest;
-    }, allTimes[0].readyAt);
+    for (const day of days) {
+      const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
+      if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
 
-    // Check if this time is acceptable for all players
-    const conflicts = allTimes.filter(p => new Date(p.waitUntil) < new Date(latestReadyAt));
+      // Find the latest start and earliest waitUntil (end) for all players
+      const latestStart = dailySlots.reduce((latest, t) => latest > t.start ? latest : t.start, "00:00");
+      const earliestWaitUntil = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
 
-    if (conflicts.length > 0) {
-      const conflictNames = conflicts.map(p => p.name).join(", ");
-      alert(`❌ Session cannot be locked.\nThe proposed time (${latestReadyAt}) is too late for: ${conflictNames}.`);
+      // Only valid if latestStart <= earliestWaitUntil
+      if (latestStart <= earliestWaitUntil) {
+        matchedDayTime = { day, start: latestStart };
+        break;
+      }
+    }
+
+    if (!matchedDayTime) {
+      const jesterConflictMessages = [
+        `🎨 *Nyehehe~!* No one picked the same time and day! Try again, my cupcakes! 🧁✨`,
+        `📜 Sprinkle tried, but there's no shared time in the stars. 💫`,
+        `🖌️ Jester painted chaos — no overlapping schedule! Fix it before Sprinkle eats your calendar. 🍪📆`
+      ];
+      sendDiscordNotification(jesterConflictMessages[Math.floor(Math.random() * jesterConflictMessages.length)]);
+      alert("No overlapping day/time found.");
       return;
     }
 
-    // Lock session and save sessionStartTime
     update(ref(db, `sessions/${name}`), {
       sessionLocked: true,
-      sessionStartTime: latestReadyAt
+      sessionStartTime: `${matchedDayTime.day} ${matchedDayTime.start}`
     }).then(() => {
-      const { db, ref, get } = window.dndApp;
       get(ref(db, `sessions/${name}`)).then((sessionSnap) => {
         const session = sessionSnap.val();
-        const message = getJesterLockMessage(name, latestReadyAt, session.dm.id, Object.keys(players));
+        const message = getJesterLockMessage(name, `${matchedDayTime.day} ${matchedDayTime.start}`, session.dm.id, Object.keys(players));
         sendDiscordNotification(message);
       });
-      alert(`✅ Session locked. Starts at ${latestReadyAt}`);
+
+      alert(`✅ Session locked for ${matchedDayTime.day} at ${matchedDayTime.start}`);
       viewSession(name, "DM");
     });
 
@@ -372,7 +359,8 @@ function getJesterLockMessage(sessionName, time, dmId, playerIds) {
     `Oooohh~! The session **'${sessionName}'** is all locked up! 🗝 Starts at **${time}**!\n${dmMention}, you're in charge — don’t let the cookies burn! 🍪\nPlayers: ${playerMentions} be nice, okay?`,
     `Ding ding! It's happening! Session **'${sessionName}'** is gonna start at **${time}**! ${dmMention}, bring the sparkles! ✨\nHey ${playerMentions} — don’t be late or I’ll draw mustaches on your tokens!`,
     `*Whispers magically*... "The winds have spoken!" The session '${sessionName}' begins at **${time}** sharp! ${dmMention} is your fearless leader~\nAll adventurers ${playerMentions} better be ready or else... teeehee.`,
-    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`
+    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`,
+    `🎨 *Jester's Mischievous Warning!* The session time has been sent in Discord! If you can't make it on time, a <strong>100 pesos</strong> penalty will be paid and split among those already in the call! Nyehehe~! Sprinkle will be watching, so don't be late or I'll paint mustaches on your character sheet! 💙✨`
   ];
 
   return messages[Math.floor(Math.random() * messages.length)];
@@ -521,9 +509,6 @@ function viewSession(name, role) {
       const isSelfPending = !!pendingPlayer;
       const isSelfApproved = !!approvedPlayer;
 
-      const readyAt = pendingPlayer?.readyAt || approvedPlayer?.readyAt || "";
-      const waitUntil = pendingPlayer?.waitUntil || approvedPlayer?.waitUntil || "";
-
       const isPlayer = (role === "Player" || role === "Pending");
       const notLocked = !session.sessionLocked;
       const isInSession = isSelfPending || isSelfApproved;
@@ -531,7 +516,7 @@ function viewSession(name, role) {
       if (isPlayer && isInSession && notLocked && !window._availabilityPromptedPerSession[name]) {
         window._availabilityPromptedPerSession[name] = true;
 
-        openAvailabilityModal(name, userId, readyAt, waitUntil, isSelfPending ? "pending" : "approved");
+        openAvailabilityModal(name, userId, isSelfPending ? "pending" : "approved");
 
         const notice = document.createElement("div");
         notice.innerHTML = `
@@ -555,8 +540,9 @@ function viewSession(name, role) {
                 Object.entries(data).map(([id, p]) => {
                   const isSelf = id === userId;
                   const canEdit = isSelf && !session.sessionLocked;
-                  return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
-                    ${canEdit ? `<button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
+                  return `<li><strong>${p.name}</strong><br>
+                    ${formatAvailability(p.availability)}
+                    ${canEdit ? `<br><button onclick="editAvailability('${name}', '${id}')">✏️ Update Time</button>` : ""}
                   </li>`;
                 }).join("") +
                 "</ul>"
@@ -564,7 +550,6 @@ function viewSession(name, role) {
           }
         </div>
       `;
-      // Remove any previous Approved Players section
       const oldApproved = container.querySelector("#approved-players-section");
       if (oldApproved) oldApproved.remove();
 
@@ -572,7 +557,6 @@ function viewSession(name, role) {
       approvedWrapper.id = "approved-players-section";
       approvedWrapper.innerHTML = html;
       container.appendChild(approvedWrapper);
-
     });
 
     // ⏳ Pending players list
@@ -586,8 +570,9 @@ function viewSession(name, role) {
               Object.keys(data).length
                 ? "<ul>" +
                   Object.entries(data).map(([id, p]) => {
-                    return `<li><strong>${p.name}</strong>: Ready At ${p.readyAt || "Not set"}, Wait Until ${p.waitUntil || "Not set"}
-                      <button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
+                    return `<li><strong>${p.name}</strong><br>
+                      ${formatAvailability(p.availability)}
+                      <br><button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
                       <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
                     </li>`;
                   }).join("") +
@@ -610,6 +595,13 @@ function viewSession(name, role) {
   });
 }
 
+function formatAvailability(availability) {
+  if (!availability) return "<i>No availability set</i>";
+  return Object.entries(availability)
+    .map(([day, range]) => `${day}: ${range.start}–${range.end}`)
+    .join("<br>");
+}
+
 function editAvailability(sessionName, playerId) {
   const { db, ref, get } = window.dndApp;
   const approvedRef = ref(db, `sessions/${sessionName}/approvedPlayers/${playerId}`);
@@ -617,7 +609,7 @@ function editAvailability(sessionName, playerId) {
   get(approvedRef).then((snap) => {
     if (!snap.exists()) return;
     const player = snap.val();
-    openAvailabilityModal(sessionName, playerId, player.readyAt || "", player.waitUntil || "");
+    openAvailabilityModal(sessionName, playerId, "approved", player.availability || {});
   });
 }
 
@@ -667,6 +659,34 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
   document.getElementById("modal-context").value = role;
+
+  // Attach day button click handler using event delegation (robust for dynamic content)
+  // Use the existing modal variable if already declared above
+  // (If not, declare it here)
+  const modal = document.getElementById("availability-modal");
+  if (!modal._dayBtnDelegationAttached) {
+    modal.addEventListener("click", function(e) {
+      if (e.target.classList.contains("day-btn")) {
+        e.target.classList.toggle("active");
+      }
+    });
+    modal._dayBtnDelegationAttached = true;
+  }
+
+  // Add Jester-style warning message
+  // modal already declared above
+  let jesterWarning = document.getElementById("jester-warning");
+  if (jesterWarning) jesterWarning.remove();
+  jesterWarning = document.createElement("div");
+  jesterWarning.id = "jester-warning";
+  jesterWarning.style = "margin: 10px 0; padding: 10px; background: #fffbe6; border: 2px dashed #e6c200; border-radius: 10px; color: #7c4d00; font-style: italic; font-size: 1rem;";
+  jesterWarning.innerHTML = `
+    <span style="font-size:1.3em;">🎨</span> <strong>Jester's Warning!</strong><br>
+    <span style="font-size:1.1em;">If you can't make it to the call at the magical time that I JESTER announces in Discord after locking the session, a <strong>100 pesos</strong> penalty will be paid and split among those already in the call!<br>
+    Nyehehe~! Sprinkle will be watching, so don't be late or I'll paint mustaches on your character sheet! 💙✨</span>
+  `;
+  // Insert at the top of the modal
+  modal.prepend(jesterWarning);
 }
 
 function closeAvailabilityModal() {
@@ -683,49 +703,56 @@ const observer = new MutationObserver(() => {
 observer.observe(modal, { attributes: true, attributeFilter: ["class"] });
 
 function savePendingAvailability(sessionName, playerId) {
-  const readyHTML = document.getElementById("readyAt").value;
-  const waitHTML = document.getElementById("waitUntil").value;
+  const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
+    .map(btn => btn.dataset.day);
 
-  const readyAt = fromHTMLDatetime(readyHTML);
-  const waitUntil = fromHTMLDatetime(waitHTML);
-
-  if (!readyAt || !waitUntil) {
-    alert("Both fields are required.");
+  if (selectedDays.length === 0) {
+    alert("Please select at least one day.");
     return;
   }
+
+  const start = document.getElementById("start-time").value;
+  const end = document.getElementById("end-time").value;
+
+  if (!start || !end) {
+    alert("Please provide a valid time range.");
+    return;
+  }
+
+  const availability = {};
+  selectedDays.forEach(day => {
+    availability[day] = { start, end };
+  });
 
   const { db, ref, set } = window.dndApp;
   const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
 
   set(pendingRef, {
     name: nickname,
-    readyAt,
-    waitUntil
+    availability
   }).then(() => {
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`);
-    alert("Join request sent. Waiting for DM approval.\n\n🎭 By joining, you swear to honor the time. Tardiness = 100 gold penalty.");
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
   });
 }
 
-// Converts string "08-12 18:30" to "2025-08-12T18:30"
+const { DateTime } = luxon;
+
 function toHTMLDatetime(str) {
   if (!str) return "";
-  const [month, day, time] = str.split(/[-\s]/);
-  const year = new Date().getFullYear(); // use current year
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${time}`;
+  const dt = DateTime.fromFormat(str, "MM-dd HH:mm", { zone: "local" });
+  if (!dt.isValid) return "";
+  const dtWithYear = dt.set({ year: new Date().getFullYear() });
+  return dtWithYear.toISO({ suppressSeconds: true, suppressMilliseconds: true }).slice(0,16);
 }
 
-// Converts HTML datetime-local back to MM-DD HH:MM
 function fromHTMLDatetime(htmlDateStr) {
-  if (!htmlDateStr || isNaN(Date.parse(htmlDateStr))) return null; // 👈 Added null check and validation
-  const d = new Date(htmlDateStr);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
-  return `${mm}-${dd} ${hh}:${mins}`;
+  if (!htmlDateStr || isNaN(Date.parse(htmlDateStr))) return null;
+  const dt = DateTime.fromISO(htmlDateStr, { zone: "local" });
+  if (!dt.isValid) return null;
+  return dt.toFormat("MM-dd HH:mm");
 }
 
 function backToDashboard() {
@@ -737,39 +764,48 @@ function backToDashboard() {
 }
 
 window.onload = async () => {
+
+
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
 
     const sessionName = document.getElementById("modal-session-name").value;
     const playerId = document.getElementById("modal-player-id").value;
-    const readyHTML = document.getElementById("readyAt").value;
-    const waitHTML = document.getElementById("waitUntil").value;
     const context = document.getElementById("modal-context").value || "approved";
 
-    const readyAt = fromHTMLDatetime(readyHTML);
-    const waitUntil = fromHTMLDatetime(waitHTML);
+    // Get selected days and time range
+    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
+      .map(btn => btn.dataset.day);
+    const start = document.getElementById("start-time").value;
+    const end = document.getElementById("end-time").value;
 
-    const { db, ref, set, get } = window.dndApp;
-    const playerRef = ref(db, `sessions/${sessionName}/${context === "pending" ? "pendingPlayers" : "approvedPlayers"}/${playerId}`);
+    if (selectedDays.length === 0) {
+      alert("Please select at least one day.");
+      return;
+    }
+    if (!start || !end) {
+      alert("Please provide a valid time range.");
+      return;
+    }
 
-    // ✅ We don't check if they already exist — just set it directly.
-    await set(playerRef, {
-      name: nickname,
-      readyAt,
-      waitUntil
+    const availability = {};
+    selectedDays.forEach(day => {
+      availability[day] = { start, end };
     });
 
-    const message =
-      context === "pending"
-        ? `🎲 ${nickname} requested to join '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`
-        : `✏️ ${nickname} updated availability in '${sessionName}' — Ready At ${readyAt}, Wait Until ${waitUntil}`;
+    const { db, ref, set } = window.dndApp;
+    const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
 
-    sendDiscordNotification(message);
-    alert(context === "pending" ? "Join request sent. Waiting for DM approval." : "Availability updated!");
+    await set(pendingRef, {
+      name: nickname,
+      availability
+    });
+
+    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
+    alert("Availability saved. Waiting for DM approval.");
     closeAvailabilityModal();
     loadUserSessions();
   });
-
 
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
 
@@ -782,7 +818,6 @@ window.onload = async () => {
     console.log("[DEBUG] No join param. Clearing old pendingJoin.");
     localStorage.removeItem("pendingJoin");
   }
-
 
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
