@@ -369,7 +369,8 @@ function getJesterLockMessage(sessionName, time, dmId, playerIds) {
     `Oooohh~! The session **'${sessionName}'** is all locked up! 🗝 Starts at **${time}**!\n${dmMention}, you're in charge — don’t let the cookies burn! 🍪\nPlayers: ${playerMentions} be nice, okay?`,
     `Ding ding! It's happening! Session **'${sessionName}'** is gonna start at **${time}**! ${dmMention}, bring the sparkles! ✨\nHey ${playerMentions} — don’t be late or I’ll draw mustaches on your tokens!`,
     `*Whispers magically*... "The winds have spoken!" The session '${sessionName}' begins at **${time}** sharp! ${dmMention} is your fearless leader~\nAll adventurers ${playerMentions} better be ready or else... teeehee.`,
-    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`
+    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`,
+    `🎨 *Jester's Mischievous Warning!* The session time has been sent in Discord! If you can't make it on time, a <strong>100 pesos</strong> penalty will be paid and split among those already in the call! Nyehehe~! Sprinkle will be watching, so don't be late or I'll paint mustaches on your character sheet! 💙✨`
   ];
 
   return messages[Math.floor(Math.random() * messages.length)];
@@ -677,6 +678,21 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
     };
     btn.addEventListener("click", btn._dayBtnHandler);
   });
+
+  // Add Jester-style warning message
+  const modal = document.getElementById("availability-modal");
+  let jesterWarning = document.getElementById("jester-warning");
+  if (jesterWarning) jesterWarning.remove();
+  jesterWarning = document.createElement("div");
+  jesterWarning.id = "jester-warning";
+  jesterWarning.style = "margin: 10px 0; padding: 10px; background: #fffbe6; border: 2px dashed #e6c200; border-radius: 10px; color: #7c4d00; font-style: italic; font-size: 1rem;";
+  jesterWarning.innerHTML = `
+    <span style="font-size:1.3em;">🎨</span> <strong>Jester's Warning!</strong><br>
+    <span style="font-size:1.1em;">If you can't make it to the call at the magical time that I JESTER announces in Discord after locking the session, a <strong>100 pesos</strong> penalty will be paid and split among those already in the call!<br>
+    Nyehehe~! Sprinkle will be watching, so don't be late or I'll paint mustaches on your character sheet! 💙✨</span>
+  `;
+  // Insert at the top of the modal
+  modal.prepend(jesterWarning);
 }
 
 function closeAvailabilityModal() {
