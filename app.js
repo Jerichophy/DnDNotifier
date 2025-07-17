@@ -667,6 +667,15 @@ function openAvailabilityModal(sessionName, playerId, currentReadyAt = "", curre
   document.getElementById("modal-session-name").value = sessionName;
   document.getElementById("modal-player-id").value = playerId;
   document.getElementById("modal-context").value = role;
+
+  // Attach day button click handlers every time modal opens
+  document.querySelectorAll(".day-btn").forEach(btn => {
+    btn.removeEventListener("click", btn._dayBtnHandler);
+    btn._dayBtnHandler = function() {
+      btn.classList.toggle("active");
+    };
+    btn.addEventListener("click", btn._dayBtnHandler);
+  });
 }
 
 function closeAvailabilityModal() {
