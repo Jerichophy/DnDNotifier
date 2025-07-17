@@ -26,91 +26,74 @@
   </script>
 </head>
 <body>
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <div class="navbar-brand">🧙‍♂️ D&D Session Manager</div>
-    <div class="navbar-links">
-      <button onclick="backToDashboard()" id="nav-dashboard" class="nav-btn">Dashboard</button>
-      <button onclick="logoutWithDiscord()" id="nav-logout" class="nav-btn hidden">Logout</button>
+  <h1>D&D Session Manager</h1>
+
+  <!-- LOGIN -->
+  <div id="discord-login" class="section">
+    <h2>Login with Discord</h2>
+    <button onclick="loginWithDiscord()">Login</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard-section" class="section hidden">
+    <h2>Welcome, <span id="user-name"></span>!</h2>
+    <img id="avatar" src="" width="64" height="64" style="border-radius: 50%; margin: 10px auto; display: block;" />
+    <button onclick="createSession()">🎲 Create New Session</button>
+    <h3>Or join a session:</h3>
+    <input type="text" id="session-id-input" placeholder="Enter Session Name" />
+    <button onclick="joinSession()">Join Session</button>
+    <h3>My Sessions:</h3>
+    <div id="session-list"></div>
+  </div>
+
+  <!-- SESSION VIEW -->
+  <div id="session-view" class="section hidden">
+    <h2>Session: <span id="view-session-name"></span></h2>
+    <div id="view-role"></div>
+    <div id="session-details">
+      <div id="dynamic-session-data"></div>
     </div>
-  </nav>
+    <button onclick="backToDashboard()">Back</button>
+  </div>
 
-  <main>
-    <!-- LOGIN -->
-    <section id="discord-login" class="section">
-      <h2>Login with Discord</h2>
-      <button onclick="loginWithDiscord()">Login</button>
-    </section>
+  <!-- AVAILABILITY MODAL -->
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border: 2px solid black; border-radius: 10px; z-index: 1000; max-width: 400px;">
+    <h3>Set Your Availability</h3>
+    <form id="availability-form">
 
-    <!-- DASHBOARD -->
-    <section id="dashboard-section" class="section hidden">
-      <div class="dashboard-header">
-        <img id="avatar" src="" width="64" height="64" />
-        <h2>Welcome, <span id="user-name"></span>!</h2>
-      </div>
-      <div class="dashboard-actions">
-        <button onclick="createSession()">🎲 Create New Session</button>
-        <div class="join-session">
-          <h3>Or join a session:</h3>
-          <input type="text" id="session-id-input" placeholder="Enter Session Name" />
-          <button onclick="joinSession()">Join Session</button>
+      <p>Select the days you're available, then choose a time range that applies to all of them:</p>
+
+      <div style="margin-bottom: 10px;">
+        <label>Select available days:</label><br />
+        <div id="day-selector" style="display: flex; flex-wrap: wrap; gap: 5px;">
+          <button type="button" class="day-btn" data-day="Monday">Mon</button>
+          <button type="button" class="day-btn" data-day="Tuesday">Tue</button>
+          <button type="button" class="day-btn" data-day="Wednesday">Wed</button>
+          <button type="button" class="day-btn" data-day="Thursday">Thu</button>
+          <button type="button" class="day-btn" data-day="Friday">Fri</button>
+          <button type="button" class="day-btn" data-day="Saturday">Sat</button>
+          <button type="button" class="day-btn" data-day="Sunday">Sun</button>
         </div>
       </div>
-      <h3>My Sessions:</h3>
-      <div id="session-list" class="session-list"></div>
-    </section>
 
-    <!-- SESSION VIEW -->
-    <section id="session-view" class="section hidden">
-      <h2>Session: <span id="view-session-name"></span></h2>
-      <div id="view-role"></div>
-      <div id="session-details">
-        <div id="dynamic-session-data"></div>
+      <div style="margin-bottom: 10px;">
+        <label for="start-time">Start Time:</label>
+        <input type="time" id="start-time" required style="width: 45%;" />
+        <label for="end-time" style="margin-left: 10px;">End Time:</label>
+        <input type="time" id="end-time" required style="width: 45%;" />
       </div>
-      <button onclick="backToDashboard()">Back</button>
-    </section>
 
-    <!-- AVAILABILITY MODAL -->
-    <div id="modal-overlay" class="hidden"></div>
-    <div id="availability-modal" class="hidden">
-      <div class="modal-header">
-        <h3>Set Your Availability</h3>
-        <button type="button" class="modal-close" onclick="closeAvailabilityModal()">&times;</button>
-      </div>
-      <form id="availability-form">
-        <p>Select the days you're available, then choose a time range that applies to all of them:</p>
-        <div class="day-selector">
-          <label>Select available days:</label><br />
-          <div id="day-selector">
-            <button type="button" class="day-btn" data-day="Monday">Mon</button>
-            <button type="button" class="day-btn" data-day="Tuesday">Tue</button>
-            <button type="button" class="day-btn" data-day="Wednesday">Wed</button>
-            <button type="button" class="day-btn" data-day="Thursday">Thu</button>
-            <button type="button" class="day-btn" data-day="Friday">Fri</button>
-            <button type="button" class="day-btn" data-day="Saturday">Sat</button>
-            <button type="button" class="day-btn" data-day="Sunday">Sun</button>
-          </div>
-        </div>
-        <div class="time-selector">
-          <label for="start-time">Start Time:</label>
-          <input type="time" id="start-time" required />
-          <label for="end-time">End Time:</label>
-          <input type="time" id="end-time" required />
-        </div>
-        <input type="hidden" id="modal-session-name" name="sessionName" />
-        <input type="hidden" id="modal-player-id" name="playerId" />
-        <input type="hidden" id="modal-context" name="context" />
-        <div class="modal-actions">
-          <button type="submit">Save Availability</button>
-          <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </main>
 
-  <footer class="footer">
-    <p>Made with <span style="color:#e6c200;">&#10084;</span> for D&D adventurers | <a href="https://github.com/Jerichophy/DnDNotifier" target="_blank">GitHub</a></p>
-  </footer>
+      <!-- Hidden context for player role and session info -->
+      <input type="hidden" id="modal-session-name" name="sessionName" />
+      <input type="hidden" id="modal-player-id" name="playerId" />
+      <input type="hidden" id="modal-context" name="context" />
+
+      <br />
+      <button type="submit">Save Availability</button>
+      <button type="button" onclick="closeAvailabilityModal()">Cancel</button>
+    </form>
+  </div>
 
   <!-- JS Logic -->
   <script type="module" src="app.js"></script>
