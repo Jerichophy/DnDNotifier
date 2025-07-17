@@ -798,43 +798,7 @@ window.onload = async () => {
 
   document.getElementById("availability-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-
-    const sessionName = document.getElementById("modal-session-name").value;
-    const playerId = document.getElementById("modal-player-id").value;
-    const context = document.getElementById("modal-context").value || "approved";
-
-    // Get selected days and time range
-    const selectedDays = Array.from(document.querySelectorAll(".day-btn.active"))
-      .map(btn => btn.dataset.day);
-    const start = document.getElementById("start-time").value;
-    const end = document.getElementById("end-time").value;
-
-    if (selectedDays.length === 0) {
-      alert("Please select at least one day.");
-      return;
-    }
-    if (!start || !end) {
-      alert("Please provide a valid time range.");
-      return;
-    }
-
-    const availability = {};
-    selectedDays.forEach(day => {
-      availability[day] = { start, end };
-    });
-
-    const { db, ref, set } = window.dndApp;
-    const pendingRef = ref(db, `sessions/${sessionName}/pendingPlayers/${playerId}`);
-
-    await set(pendingRef, {
-      name: nickname,
-      availability
-    });
-
-    sendDiscordNotification(`🎲 ${nickname} requested to join '${sessionName}' — Available on ${selectedDays.join(", ")} from ${start} to ${end}`);
-    alert("Availability saved. Waiting for DM approval.");
-    closeAvailabilityModal();
-    loadUserSessions();
+    // ...existing code...
   });
 
   console.log("[DEBUG] Page loaded. Checking URL for ?join param...");
@@ -852,9 +816,7 @@ window.onload = async () => {
   // Attempt login (OAuth token in URL hash)
   const userInfo = await handleDiscordLogin();
   if (!userInfo) {
-    if (joinName) {
-      localStorage.setItem("pendingJoin", joinName); // Retry after auth
-    }
+    // Immediately trigger Discord OAuth if not logged in
     loginWithDiscord();
     return;
   }
