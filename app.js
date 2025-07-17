@@ -481,7 +481,6 @@ function viewSession(name, role) {
           <button onclick="navigator.clipboard.writeText('${inviteLink}').then(() => alert('Copied!'))">
             📋 Copy Invite Link
           </button>
-          <a href="${inviteLink}" target="_blank" style="margin-left: 10px;">🔗 Open Invite Link</a>
         </div>
         <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 10px;">
           <h3>🛠️ Session Controls</h3>
