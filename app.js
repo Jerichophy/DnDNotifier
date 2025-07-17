@@ -544,7 +544,7 @@ function viewSession(name, role) {
                   let controls = "";
                   if (canEdit) controls += `<button style='margin-left:8px;' onclick=\"editAvailability('${name}', '${id}')\">✏️ Update Time</button>`;
                   // DM can kick any approved player except themselves
-                  if (role === "DM" && id !== session.dm.id) controls += `<button style='margin-left:8px;' onclick=\"window.kickPlayer('${name}', '${id}', '${p.name}')\">🚪 Kick</button>`;
+                  if (role === "DM" && id !== session.dm.id) controls += `<button style='margin-left:8px;' onclick=\"window.kickPlayer('${name}', '${id}', \"${p.name.replace(/"/g, '&quot;')}\")\">🚪 Kick</button>`;
                   return `<li style='display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;'><span><strong>${p.name}</strong><br>${formatAvailability(p.availability)}</span><span>${controls}</span></li>`;
                 }).join("") +
                 "</ul>"
