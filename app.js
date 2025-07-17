@@ -561,41 +561,6 @@ function viewSession(name, role) {
       container.appendChild(approvedWrapper);
     });
 
-    // ⏳ Pending players list
-    onValue(pendingRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      if (role === "DM") {
-        let html = `
-          <div style="margin-top: 20px;">
-            <h3>⏳ Pending Players</h3>
-            ${
-              Object.keys(data).length
-                ? "<ul>" +
-                  Object.entries(data).map(([id, p]) => {
-                    return `<li><strong>${p.name}</strong><br>
-                      ${formatAvailability(p.availability)}
-                      <br><button onclick="approvePlayer('${name}', '${id}')">✅ Approve</button>
-                      <button onclick="rejectPlayer('${name}', '${id}')">❌ Reject</button>
-                    </li>`;
-                  }).join("") +
-                  "</ul>"
-                : "<i>No pending players.</i>"
-            }
-          </div>
-        `;
-        const oldPending = container.querySelector("#pending-players-section");
-        if (oldPending) oldPending.remove();
-
-        const pendingWrapper = document.createElement("div");
-        pendingWrapper.id = "pending-players-section";
-        pendingWrapper.innerHTML = html;
-        container.appendChild(pendingWrapper);
-      }
-    });
-  }).catch((err) => {
-    console.error("🔥 Failed to load session data:", err);
-  });
-}
 
 function kickPlayer(sessionName, playerId, playerName) {
   const { db, ref, set } = window.dndApp;
