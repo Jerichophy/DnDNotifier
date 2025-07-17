@@ -57,7 +57,7 @@
   </div>
 
   <!-- AVAILABILITY MODAL -->
-  <div id="availability-modal" class="hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 28px 24px; border: 2px solid #a87b3f; border-radius: 18px; z-index: 1000; max-width: 380px; max-height: 70vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(92,46,0,0.18); touch-action: auto;">
+  <div id="availability-modal" class="hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.85); padding: 28px 24px; border: 2px solid #a87b3f; border-radius: 18px; z-index: 1000; max-width: 380px; max-height: 70vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(92,46,0,0.18); touch-action: auto; backdrop-filter: blur(2px);">
     <h3>Set Your Availability</h3>
     <form id="availability-form">
 
@@ -65,7 +65,7 @@
 
       <div style="margin-bottom: 10px;">
         <label>Select available days:</label><br />
-        <div id="day-selector" style="display: flex; flex-wrap: wrap; gap: 5px;">
+        <div id="day-selector" style="display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;">
           <button type="button" class="day-btn" data-day="Monday">Mon</button>
           <button type="button" class="day-btn" data-day="Tuesday">Tue</button>
           <button type="button" class="day-btn" data-day="Wednesday">Wed</button>
