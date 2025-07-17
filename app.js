@@ -354,18 +354,7 @@ function getJesterCreateMessage(sessionName, dmId) {
 }
 
 function getJesterLockMessage(sessionName, time, dmId, playerIds) {
-  const dmMention = `<@${dmId}>`;
-  const playerMentions = playerIds.map(id => `<@${id}>`).join(", ");
-
-  const messages = [
-    `Oooohh~! The session **'${sessionName}'** is all locked up! 🗝 Starts at **${time}**!\n${dmMention}, you're in charge — don’t let the cookies burn! 🍪\nPlayers: ${playerMentions} be nice, okay?`,
-    `Ding ding! It's happening! Session **'${sessionName}'** is gonna start at **${time}**! ${dmMention}, bring the sparkles! ✨\nHey ${playerMentions} — don’t be late or I’ll draw mustaches on your tokens!`,
-    `*Whispers magically*... "The winds have spoken!" The session '${sessionName}' begins at **${time}** sharp! ${dmMention} is your fearless leader~\nAll adventurers ${playerMentions} better be ready or else... teeehee.`,
-    `*CLAP!* Attention adventurers! Session **'${sessionName}'** is LOCKED! Starts at **${time}** sharp!\n${dmMention} is expecting you, ${playerMentions}. Don't make me send Sprinkle. 🐹`,
-    `🎨 *Jester's Mischievous Warning!* The session time has been sent in Discord! If you can't make it on time, a <strong>100 pesos</strong> penalty will be paid and split among those already in the call! Nyehehe~! Sprinkle will be watching, so don't be late or I'll paint mustaches on your character sheet! 💙✨`
-  ];
-
-  return messages[Math.floor(Math.random() * messages.length)];
+  return `🎲 Session **'${sessionName}'** is LOCKED! Starts at **${time}**!\n<@${dmId}> is your DM.\nPlayers: ${playerIds.map(id => `<@${id}>`).join(" ")}\nDon't be late or Sprinkle will paint mustaches on your character sheet! 💙✨`;
 }
 
 function getJesterDeleteMessage(sessionName, dmId, playerIds = []) {
