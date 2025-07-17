@@ -286,13 +286,32 @@ function lockSession(name) {
       const dailySlots = allAvailability.map(av => av?.[day]).filter(Boolean);
       if (dailySlots.length !== allAvailability.length) continue; // someone missing this day
 
-      // Find the latest start and earliest waitUntil (end) for all players
-      const latestStart = dailySlots.reduce((latest, t) => latest > t.start ? latest : t.start, "00:00");
-      const earliestWaitUntil = dailySlots.reduce((earliest, t) => earliest < t.end ? earliest : t.end, "23:59");
+      // Convert time strings to minutes since midnight
+      function toMinutes(t) {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
 
-      // Only valid if latestStart <= earliestWaitUntil
-      if (latestStart <= earliestWaitUntil) {
-        matchedDayTime = { day, start: latestStart };
+      // Normalize overnight ranges: if end < start, treat end as next day
+      const normalizedSlots = dailySlots.map(({ start, end }) => {
+        let startMin = toMinutes(start);
+        let endMin = toMinutes(end);
+        if (endMin < startMin) endMin += 24 * 60;
+        return { startMin, endMin, start, end };
+      });
+
+      // Find the latest start and earliest end
+      const latestStartMin = Math.max(...normalizedSlots.map(s => s.startMin));
+      const earliestEndMin = Math.min(...normalizedSlots.map(s => s.endMin));
+
+      // Only valid if latestStartMin <= earliestEndMin
+      if (latestStartMin <= earliestEndMin) {
+        // Convert latestStartMin back to HH:mm (modulo 24h)
+        const startHour = Math.floor((latestStartMin % (24 * 60)) / 60);
+        const startMin = latestStartMin % 60;
+        const pad = n => n.toString().padStart(2, "0");
+        const startStr = `${pad(startHour)}:${pad(startMin)}`;
+        matchedDayTime = { day, start: startStr };
         break;
       }
     }

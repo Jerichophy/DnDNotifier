@@ -76,11 +76,15 @@
         </div>
       </div>
 
-      <div style="margin-bottom: 10px;">
-        <label for="start-time">Start Time:</label>
-        <input type="time" id="start-time" required style="width: 45%;" />
-        <label for="end-time" style="margin-left: 10px;">End Time:</label>
-        <input type="time" id="end-time" required style="width: 45%;" />
+      <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="start-time" style="min-width: 80px;">Start Time:</label>
+          <input type="time" id="start-time" required style="flex: 1;" />
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="end-time" style="min-width: 80px;">Until Time:</label>
+          <input type="time" id="end-time" required style="flex: 1;" />
+        </div>
       </div>
 
 
